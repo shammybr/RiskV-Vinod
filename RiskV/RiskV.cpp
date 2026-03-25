@@ -3,11 +3,13 @@
 
 #include <iostream>
 #include "RiskVProcessor.h"
+#include "NES.h"
 
 int main()
 {
     RiskVProcessor* processor = new RiskVProcessor(0x10000);
-
+    NES* nes = new NES();
+    nes->reset();
 
 
     std::cout << "Hello World!\n";
