@@ -53,12 +53,7 @@ void NES::write(uint16_t address, uint8_t data) {
 
 }
 
-void NES::I_LDA(uint16_t address) {
 
-	regA = read(address);
-
-	updateFlags(regA);
-}
 
 void NES::updateFlags(uint8_t value) {
 
@@ -69,11 +64,11 @@ void NES::updateFlags(uint8_t value) {
 		regP = regP & ~0b0000'0010; // OFF
 	}
 
-	if (value & 0b0100'0000) {
-		regP = regP | 0b0100'0000; // ON
+	if (value & 0b1000'0000) {
+		regP = regP | 0b1000'0000; // ON
 	}
 	else {
-		regP = regP | 0b0100'0000; // OFF
+		regP = regP & ~0b1000'0000; // OFF
 	}
 }
 
@@ -134,7 +129,7 @@ uint16_t NES::addressAbsoluteY(uint16_t address) {
 
 }
 
-uint16_t NES::address_Absolute_Indirect(uint16_t address) {
+uint16_t NES::addressAbsoluteIndirect(uint16_t address) {
 
 	uint16_t absolute = addressAbsolute(address);
 
@@ -152,6 +147,207 @@ uint16_t NES::address_Absolute_Indirect(uint16_t address) {
 	return lByte + (hByte << 8);
 }
 
+uint16_t NES::addressIndirectX(uint16_t address) {
+	uint8_t indirect = read(address);
+	regPC++;
+
+	indirect = (indirect + regX) & 0x00FF;
+
+	uint8_t lByte = read(indirect);
+	uint8_t hByte = read((indirect + 1) & 0x00FF);
+
+	return lByte + (hByte << 8);
+
+}
+
+uint16_t NES::addressIndirectY(uint16_t address) {
+	uint8_t indirect = read(address);
+	regPC++;
+
+	uint8_t lByte = read(indirect);
+	uint8_t hByte = read((indirect + 1) & 0x00FF);
+
+	return ((lByte + (hByte << 8)) + regY);
+
+}
+
+uint16_t NES::addressRelative(uint16_t address) {
+
+	return read(regPC++);
+
+
+}
+
+void NES::branch(uint8_t offset) {
+	int8_t signedOffset = static_cast<int8_t>(offset);
+
+	regPC = regPC + signedOffset;
+
+
+}
+
+
+void NES::I_LDA(uint16_t address) {
+
+	regA = read(address);
+
+	updateFlags(regA);
+}
+
+
+void NES::I_ADC(uint16_t address) {
+
+	uint8_t data = read(address);
+										//carry flag
+	uint16_t sum = regA + data + (regP & 0b0000'0001);
+
+	//carry flag
+	if (sum > 0xFF) {
+		regP = regP | 0b0000'0001; //ON
+	}
+	else {
+		regP = regP & ~0b0000'0001; // OFF
+	}
+
+	//overflow
+	if ((~(regA ^ data) & (regA ^ sum)) & 0b1000'0000) {
+		regP = regP | 0b0100'0000; //ON
+	}
+	else {
+		regP = regP & ~0b0100'0000; //OFF
+	}
+
+	regA = sum & 0b1111'1111;
+
+	updateFlags(regA);
+}
+
+//SISTEMA BRASILEIRO DE CARRY
+void NES::I_SBC(uint16_t address) {
+
+	uint8_t data = read(address);
+	uint16_t inverted_data = data ^ 0b1111'1111;
+
+	uint16_t sum = regA + inverted_data + (regP & 0b0000'0001);
+
+	//carry flag
+	if (sum > 0xFF) {
+		regP = regP | 0b0000'0001; //ON
+	}
+	else {
+		regP = regP & ~0b0000'0001; // OFF
+	}
+
+	//overflow
+	if ((~(regA ^ inverted_data) & (regA ^ sum)) & 0b1000'0000) {
+		regP = regP | 0b0100'0000; //ON
+	}
+	else {
+		regP = regP & ~0b0100'0000; //OFF
+	}
+
+	regA = sum & 0b1111'1111;
+
+	updateFlags(regA);
+
+}
+//BRANCH IF EQUOLLLSL 0
+void NES::IBEQ(uint16_t address) {
+	uint8_t offset = read(address);
+
+					//zero flag
+	if (offset & 0b0000'0010) {
+		branch(offset);
+	}
+
+}
+
+//BRANCH IF NOTTO EQUOLLLSL 0
+void NES::IBNE(uint16_t address) {
+	uint8_t offset = read(address);
+	         
+
+			
+	if (!(offset & ~0b0000'0010)) {
+		branch(offset);
+	}
+
+}
+
+//BRANCH IF CARRY CLEAR
+void NES::IBCC(uint16_t address) {
+	uint8_t offset = read(address);
+
+
+
+	if (!(offset & ~0b0000'0001)) {
+		branch(offset);
+	}
+
+}
+
+//BRANCH IF CARRY SET
+void NES::IBCS(uint16_t address) {
+	uint8_t offset = read(address);
+
+
+
+	if ((offset & ~0b0000'0001)) {
+		branch(offset);
+	}
+
+}
+
+//BRANCH IF OVERFLOW CLEAR
+void NES::IBVC(uint16_t address) {
+	uint8_t offset = read(address);
+
+
+
+	if (!(offset & ~0b0100'0000)) {
+		branch(offset);
+	}
+
+}
+
+//BRANCH IF OVERFLOW SET
+void NES::IBVS(uint16_t address) {
+	uint8_t offset = read(address);
+
+
+
+	if ((offset & ~0b0100'0000)) {
+		branch(offset);
+	}
+
+}
+
+//BRANCH IF PLUS
+void NES::IBPL(uint16_t address) {
+	uint8_t offset = read(address);
+
+
+
+	if (!(offset & ~0b1000'0000)) {
+		branch(offset);
+	}
+
+}
+
+//BRANCH IF MINUS TECH TIPS
+void NES::IBMI(uint16_t address) {
+	uint8_t offset = read(address);
+
+
+
+	if ((offset & ~0b1000'0000)) {
+		branch(offset);
+	}
+
+}
+
+
+
 void NES::step() {
 
 	uint8_t opcode = read(regPC++);
@@ -159,30 +355,24 @@ void NES::step() {
 
 	switch (opcode) {
 
-		case 0xA9: {
-				
-			I_LDA(address_Immediate(regPC));
+		//LDA
+		case 0xA9: I_LDA(addressImmediate(regPC)); break;
+		case 0xA5: I_LDA(addressZeroPage(regPC)); break;
+		case 0xB5: I_LDA(addressZeroPageX(regPC)); break;
+		case 0xAD: I_LDA(addressAbsolute(regPC)); break;
+		case 0xBD: I_LDA(addressAbsoluteX(regPC)); break;
+		case 0xB9: I_LDA(addressAbsoluteY(regPC)); break;
+		case 0xA1: I_LDA(addressIndirectX(regPC)); break;
+		case 0xB1: I_LDA(addressIndirectY(regPC)); break;
 
-			break;
-		}
-
-		case 0xA5: {
-
-			I_LDA(address_ZeroPage(regPC));
-
-			break;
-		}
+		//ATTACK DAMAGE CARRY
+		case 0x69: I_ADC(addressImmediate(regPC)); break;
+		case 0x65: I_ADC(addressZeroPage(regPC)); break;
 
 
-		case 0xEA: {
 
-			break;
-		}
-
-		default: {
-			std::cout << "OPCODE ERROR MEME NUMBER: " << opcode << std::endl;
-			break;
-		}
+		default: std::cout << "OPCODE ERROR MEME NUMBER: " << opcode << std::endl;	break;
+		
 	}
 
 
