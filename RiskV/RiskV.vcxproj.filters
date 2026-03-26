@@ -18,5 +18,31 @@
     <ClCompile Include="RiskV.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="NES.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RiskVProcessor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NESROM.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NESLogger.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="NES.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RiskVProcessor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NESROM.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NESLogger.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
