@@ -178,6 +178,76 @@ uint16_t NES::addressRelative(uint16_t address) {
 
 }
 
+//shift 1 bit left
+uint8_t NES::asl(uint8_t data) {
+
+	if (data & 0b1000'0000) {
+		regP = regP | 0b0000'0001; // the father is on
+	}
+	else {
+		regP = regP & ~0b0000'0001; // carry off
+	}
+
+
+	uint8_t result = data << 1;
+	updateFlags(result);
+	return result;
+}
+
+
+//shift 1 bit right
+uint8_t NES::lsr(uint8_t data) {
+
+	if (data & 0b0000'0001) {
+		regP = regP | 0b0000'0001; // the father is on
+	}
+	else {
+		regP = regP & ~0b0000'0001; // carry off
+	}
+
+
+	uint8_t result = data >> 1;
+	updateFlags(result);
+	return result;
+}
+
+//rotate left
+uint8_t NES::rol(uint8_t data) {
+	uint8_t carry = (regP & 0b0000'0001);
+
+	if (data & 0b1000'0000) {
+		regP = regP | 0b0000'0001;
+
+	}
+	else {
+		regP = regP & ~0b0000'0001;
+	}
+
+	uint8_t result = (data << 1) | carry;
+	updateFlags(result);
+	return result;
+
+}
+
+//rotate right
+uint8_t NES::ror(uint8_t data) {
+	uint8_t carry = (regP & 0b0000'0001);
+
+	if (data & 0b0000'0001) {
+		regP = regP | 0b0000'0001;
+
+	}
+	else {
+		regP = regP & ~0b0000'0001;
+	}
+
+	uint8_t result = (data >> 1) | (carry << 7);
+	updateFlags(result);
+	return result;
+
+}
+
+
 void NES::branch(uint8_t offset) {
 	int8_t signedOffset = static_cast<int8_t>(offset);
 
@@ -369,7 +439,69 @@ void NES::step() {
 		case 0x69: I_ADC(addressImmediate(regPC)); break;
 		case 0x65: I_ADC(addressZeroPage(regPC)); break;
 
+		// subtract with carry
+		case 0xE9: I_SBC(addressImmediate(regPC)); break;
+		case 0xE5: I_SBC(addressZeroPage(regPC)); break;
 
+		//logic
+		case 0x29: I_AND(addressImmediate(regPC)); break;
+		case 0x25: I_AND(addressZeroPage(regPC)); break;
+
+		case 0x09: I_ORA(addressImmediate(regPC)); break;
+		case 0x05: I_ORA(addressZeroPage(regPC)); break;
+
+		case 0x49: I_EOR(addressImmediate(regPC)); break;
+		case 0x45: I_EOR(addressZeroPage(regPC)); break;
+
+		// branches
+		case 0x90: I_BCC(regPC); break;
+		case 0xB0: I_BCS(regPC); break;
+		case 0xF0: I_BEQ(regPC); break;
+		case 0xD0: I_BNE(regPC); break;
+		case 0x30: I_BMI(regPC); break;
+		case 0x10: I_BPL(regPC); break;
+		case 0x50: I_BVC(regPC); break;
+		case 0x70: I_BVS(regPC); break;
+
+
+		// LSR Accumulator
+		case 0x4A: regA = lsr(regA); break;
+
+		// LSR Zero Page
+		case 0x46: {
+			uint16_t addr = addressZeroPage(regPC);
+			write(addr, lsr(read(addr)));
+			break;
+		}
+
+		// ROL
+		case 0x2A: regA = rol(regA); break; 
+
+		case 0x26: {
+			uint16_t addr = addressZeroPage(regPC);
+			write(addr, rol(read(addr)));
+			break;
+		}
+
+		// ROR
+		case 0x6A: regA = ror(regA); break; 
+
+		case 0x66: {
+			uint16_t addr = addressZeroPage(regPC);
+			write(addr, ror(read(addr)));
+			break;
+		}
+
+		// ASL Accumulator
+		case 0x0A: regA = asl(regA); break;
+
+		// ASL Zero Page
+		case 0x06: {
+			uint16_t addr = addressZeroPage(regPC);
+			uint8_t data = read(addr);
+			write(addr, asl(data));
+			break;
+		}
 
 		default: std::cout << "OPCODE ERROR MEME NUMBER: " << opcode << std::endl;	break;
 		
