@@ -13,6 +13,7 @@ struct InstructionInfo {
     AddrMode mode;
     uint8_t bytes;
     uint8_t cycles;
+    uint8_t extraCycles;
 };
 
 class NESLogger {

@@ -1,0 +1,11 @@
+﻿  NES.cpp
+  NESLogger.cpp
+  NESROM.cpp
+  PPU.cpp
+  RiskV.cpp
+  RiskVProcessor.cpp
+  Generating code
+  Previous IPDB not found, fall back to full compilation.
+  All 379 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  RiskV.vcxproj -> F:\RiskV-Vinod\RiskV\x64\Release\RiskV.exe

@@ -39,4 +39,14 @@ NESROM::NESROM(const std::string& fileName) {
     }
 
     file.close();
-};
+}
+
+
+uint8_t NESROM::read(uint16_t address){
+    return 0;
+}
+
+void NESROM::write(uint16_t address, uint8_t data)
+{
+
+}

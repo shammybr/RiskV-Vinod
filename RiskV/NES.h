@@ -2,13 +2,18 @@
 #include <cstdint>
 #include "NESROM.h"
 #include "NESLogger.h"
+#include "PPU.h"
+
 
 #define INTERNALSTART 0x0000
 #define INTERNALEND 0x07FF
 #define INTERNALMIRROED 0x1FFF
+#define PPUADDRESSROMEND 0x1FFF
 #define PPUSTART 0x2000
 #define PPUEND 0x2007
 #define PPUENDMIRROED 0x3FFF
+#define PPUADDRESSVRAMEND 0x3EFF
+#define PPUADDRESSPALLETESTART 0x3F00
 #define APUSTART 0x4000
 #define APUEND 0x401F
 #define ROMSTART 0x8000
@@ -45,8 +50,11 @@ public:
 public:
 	bool on = false;
 	bool isPageCrossed = false;
+	uint8_t extraCycles = 0;
+
 	NESROM* currentRom = nullptr;
 	Mapper000* mapper = nullptr;
+	PPU* ppu = nullptr;
 
 public:
 	NES();
@@ -206,7 +214,7 @@ public:
 
 	void reset();
 
-	void step(NESLogger* logger);
+	uint8_t step(NESLogger* logger);
 
 
 

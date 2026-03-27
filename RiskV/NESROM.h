@@ -19,6 +19,11 @@ struct iNES_Header {
 
 };
 
+enum EMirrorMode {
+    MVERTICAL,
+    MHORIZONTAL
+};
+
 
 class NESROM {
 public:
@@ -27,8 +32,11 @@ public:
     
     iNES_Header header;
     uint8_t mapperID = 0;
-    
+    EMirrorMode mirrorMode;
+
 
     NESROM(const std::string& fileName);
 
+    uint8_t read(uint16_t address);
+    void write(uint16_t address, uint8_t data);
 };

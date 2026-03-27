@@ -4,6 +4,8 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <thread>
+#include <chrono>
 #include "RiskVProcessor.h"
 #include "NES.h"
 #include "NESROM.h"
@@ -12,6 +14,8 @@
 void CompareFiles(const std::string& file1Path, const std::string& file2Path, const std::string& outputPath);
 
 int main(){
+
+
 
     NESLogger* logger = new NESLogger();
 
@@ -37,19 +41,54 @@ int main(){
         return -1;
     }
 
+
+    const std::chrono::nanoseconds frameTarget(16639260);
+   
+    auto frameStart = std::chrono::steady_clock::now();
+    auto targetTime = frameStart + frameTarget;
+
+    auto lastFpsTime = std::chrono::steady_clock::now();
+    int frames = 0;
     while (nes->on) {
-
-        logFile << logger->getLogStep(nes);
-
-        nes->step(logger);
+       
+        
 
 
+        //logFile << logger->getLogStep(nes);
 
-        if (instructionCount >= 8991) {
-            nes->on = false;
+        uint8_t cpuCycles = nes->step(logger);
+        bool sleep = false;
+
+        for (int i = 0; i < (cpuCycles * 3); i++) {
+            if (nes->ppu->step(logger)) {
+                sleep = true;
+                frames++;
+
+            }
+            
         }
 
-        instructionCount++;
+
+        if (sleep) {
+
+            auto now = std::chrono::steady_clock::now();
+            if (now >= lastFpsTime + std::chrono::seconds(1)) {
+                std::cout << "FPS: " << frames << std::endl;
+                frames = 0;
+                lastFpsTime += std::chrono::seconds(1);
+            }
+
+
+            while (std::chrono::steady_clock::now() < targetTime) {
+                std::this_thread::yield();
+            }
+
+
+            targetTime += frameTarget;
+        }
+
+
+
     }
 
 

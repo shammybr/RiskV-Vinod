@@ -130,6 +130,7 @@
     <ClCompile Include="NES.cpp" />
     <ClCompile Include="NESLogger.cpp" />
     <ClCompile Include="NESROM.cpp" />
+    <ClCompile Include="PPU.cpp" />
     <ClCompile Include="RiskV.cpp" />
     <ClCompile Include="RiskVProcessor.cpp" />
   </ItemGroup>
@@ -137,6 +138,7 @@
     <ClInclude Include="NES.h" />
     <ClInclude Include="NESLogger.h" />
     <ClInclude Include="NESROM.h" />
+    <ClInclude Include="PPU.h" />
     <ClInclude Include="RiskVProcessor.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -3,6 +3,7 @@
 #include <iostream>
 
 NES::NES() {
+	ppu = new PPU(this);
 	on = true;
 	reset();
 
@@ -64,7 +65,7 @@ uint8_t NES::read(uint16_t address) {
 
 	}
 	else if (address >= PPUSTART && address <= PPUENDMIRROED) {
-		data = 0;
+		data = ppu->cpuRead(address & 0x0007);
 	}
 
 
@@ -86,11 +87,12 @@ uint8_t NES::read(uint16_t address) {
 void NES::write(uint16_t address, uint8_t data) {
 
 	if (address <= INTERNALMIRROED) {
-		//mirror
+					//mirror
 		memory[address & INTERNALEND] = data;
 	}
 	else if (address >= PPUSTART && address <= PPUENDMIRROED) {
-		//memory[address & 0x2007] = data;
+		ppu->cpuWrite(address & 0x0007, data);
+
 	}
 	else {
 		uint32_t mappedAddress = 0;
@@ -140,10 +142,11 @@ uint16_t NES::addressZeroPage(uint16_t address) {
 }
 
 uint16_t NES::addressZeroPageX(uint16_t address) {
+						//base + regX      mirror em 0x00FF
 	uint16_t data = ((read(address) + regX) & 0x00FF);
 	regPC++;
 
-			//base + regX mirror em 0x00FF
+			
 	return data;
 
 }
@@ -284,8 +287,16 @@ void NES::compare(uint8_t regData, uint8_t data) {
 
 void NES::branch(uint8_t offset) {
 	int8_t signedOffset = static_cast<int8_t>(offset);
+	regPC++;
 
-	regPC = regPC + 1 + signedOffset;
+	uint16_t newPC = regPC + signedOffset;
+
+	if ((newPC & 0xFF00) != (regPC & 0xFF00)) {
+
+		isPageCrossed = true;
+	}
+
+	regPC = newPC;
 
 
 }
@@ -468,6 +479,7 @@ void NES::I_BEQ(uint16_t address) {
 					//zero flag
 	if (regP & 0b0000'0010) {
 		branch(offset);
+		extraCycles++;
 	}
 	else {
 
@@ -483,6 +495,7 @@ void NES::I_BNE(uint16_t address) {
 			
 	if (!(regP & 0b0000'0010)) {
 		branch(offset);
+		extraCycles++;
 	}
 	else {
 
@@ -497,6 +510,7 @@ void NES::I_BCC(uint16_t address) {
 
 	if (!(regP & 0b0000'0001)) {
 		branch(offset);
+		extraCycles++;
 	}
 	else {
 
@@ -512,6 +526,7 @@ void NES::I_BCS(uint16_t address) {
 
 	if (regP & 0b0000'0001) {
 		branch(offset);
+		extraCycles++;
 	}
 	else {
 
@@ -527,6 +542,7 @@ void NES::I_BVC(uint16_t address) {
 
 	if (!(regP & 0b0100'0000)) {
 		branch(offset);
+		extraCycles++;
 	}
 	else {
 
@@ -542,6 +558,7 @@ void NES::I_BVS(uint16_t address) {
 
 	if (regP & 0b0100'0000) {
 		branch(offset);
+		extraCycles++;
 	}
 	else {
 
@@ -557,6 +574,7 @@ void NES::I_BPL(uint16_t address) {
 
 	if (!(regP & 0b1000'0000)) {
 		branch(offset);
+		extraCycles++;
 	}
 	else {
 
@@ -572,6 +590,7 @@ void NES::I_BMI(uint16_t address) {
 
 	if (regP & 0b1000'0000) {
 		branch(offset);
+		extraCycles++;
 	}
 	else {
 
@@ -835,14 +854,14 @@ void NES::I_JMP(uint16_t address) {
 	regPC = address;
 }
 
-void NES::step(NESLogger* logger) {
+uint8_t NES::step(NESLogger* logger) {
 
 	uint8_t opcode = read(regPC++);
 
 	//log
 	InstructionInfo info = logger->opTable[opcode];
 	uint8_t baseCycles = info.cycles;
-	uint8_t extraCycles = 0;
+	extraCycles = 0;
 
 	isPageCrossed = false;
 
@@ -1185,9 +1204,13 @@ void NES::step(NESLogger* logger) {
 		
 	}
 
+	if (isPageCrossed) {
+		extraCycles += info.extraCycles;
+	}
 
 	currentCycles += baseCycles + extraCycles;
 
+	return baseCycles + extraCycles;
 
 }
 
