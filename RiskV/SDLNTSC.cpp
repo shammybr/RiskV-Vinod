@@ -14,12 +14,13 @@ SDLNTSC::SDLNTSC() : nesBuffer(NES_WIDTH* NES_HEIGHT, 0),
     }
 
     else {
-        // Create Window and Hardware Renderer
+       
         window = SDL_CreateWindow("NES NTSC Emulator", NTSC_OUT_WIDTH, NTSC_OUT_HEIGHT * 2, 0);
         renderer = SDL_CreateRenderer(window, NULL);
+        //vsync
+        SDL_SetRenderVSync(renderer, 1);
 
-        // Create the Streaming Texture
-        // NOTE: nes_ntsc outputs 16-bit RGB565 pixels by default unless configured otherwise.
+
         texture = SDL_CreateTexture(renderer,
             SDL_PIXELFORMAT_RGB565,
             SDL_TEXTUREACCESS_STREAMING,
@@ -28,7 +29,7 @@ SDLNTSC::SDLNTSC() : nesBuffer(NES_WIDTH* NES_HEIGHT, 0),
 
 
         ntsc = (nes_ntsc_t*)malloc(sizeof(nes_ntsc_t));
-        setup = nes_ntsc_composite; // Or nes_ntsc_svideo, nes_ntsc_rgb
+        setup = nes_ntsc_composite; 
         nes_ntsc_init(ntsc, &setup);
 
 
@@ -51,19 +52,18 @@ void SDLNTSC::quit(){
 }
 
 void SDLNTSC::draw(){
-    // Toggle the NTSC artifact phase every frame for authentic shimmering
+   
     burst_phase ^= 1;
 
-    // 4. Run the NTSC Filter
-    // This takes your 8-bit NES array, applies the CRT math, and fills the 16-bit NTSC array
-    nes_ntsc_blit(ntsc,
-        nesBuffer.data(), NES_WIDTH, // Input buffer and pitch (width)
-        burst_phase,                 // Alternating artifact phase
-        NES_WIDTH, NES_HEIGHT,       // Input dimensions
-        ntscOutput.data(),           // Output buffer
-        NTSC_OUT_WIDTH * sizeof(uint16_t)); // Output pitch in bytes
 
-    // 5. Push to the GPU and render
+    nes_ntsc_blit(ntsc,
+        nesBuffer.data(), NES_WIDTH, 
+        burst_phase,                 
+        NES_WIDTH, NES_HEIGHT,       
+        ntscOutput.data(),           
+        NTSC_OUT_WIDTH * sizeof(uint16_t)); 
+
+   
     SDL_UpdateTexture(texture, NULL, ntscOutput.data(), NTSC_OUT_WIDTH * sizeof(uint16_t));
 
     SDL_RenderClear(renderer);
@@ -71,9 +71,33 @@ void SDLNTSC::draw(){
     SDL_RenderPresent(renderer);
 }
 
-bool SDLNTSC::poll() {
+bool SDLNTSC::poll(uint8_t *controller) {
     while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_EVENT_QUIT) {
+        if (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) {
+            bool pressed = (event.type == SDL_EVENT_KEY_DOWN);
+            uint8_t bitmask = 0;
+
+   
+            switch (event.key.key) {
+            case SDLK_J:            bitmask = 0b10000000; break; // A
+            case SDLK_K:            bitmask = 0b01000000; break; // B
+            case SDLK_RSHIFT:  bitmask = 0b00100000; break; // Select
+            case SDLK_RETURN:       bitmask = 0b00010000; break; // Start
+            case SDLK_W:           bitmask = 0b00001000; break; // Up
+            case SDLK_S:         bitmask = 0b00000100; break; // Down
+            case SDLK_A:         bitmask = 0b00000010; break; // Left
+            case SDLK_D:        bitmask = 0b00000001; break; // Right
+            }
+
+            if (pressed) {
+                controller[0] |= bitmask;  
+            }
+            else {
+                controller[0] &= ~bitmask; 
+            }
+        }
+
+        else if (event.type == SDL_EVENT_QUIT) {
             return false;
         }
     }

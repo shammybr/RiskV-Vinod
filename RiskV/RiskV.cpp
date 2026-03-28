@@ -58,7 +58,7 @@ int main(){
     while (nes->on) {
        
         
-        if (!sdl->poll()) {
+        if (!sdl->poll(nes->controller)) {
             nes->on = false;
             sdl->quit();
         }

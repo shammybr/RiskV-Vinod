@@ -44,6 +44,13 @@ public:
 	uint8_t regP = 0x000;
 	uint16_t regPC = 0x000;
 
+	//  A, B, Select, Start, Up, Down, Left, Right
+	// 0x80 = A, 0x01 = Right
+
+	uint8_t controller[2] = { 0, 0 };      //live
+	uint8_t controllerState[2] = { 0, 0 }; 
+
+
 	uint64_t currentCycles = 7;
 	int cyclesRemaining = 0;
 

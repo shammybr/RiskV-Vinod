@@ -32,6 +32,6 @@ public:
 
 	void quit();
 	void draw();
-	bool poll();
+	bool poll(uint8_t *controller);
 
 };

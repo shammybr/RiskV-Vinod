@@ -40,6 +40,8 @@ public:
 	bool addressLatch = false;
 
 
+	bool oddFrame = false;
+
 	int16_t scanline = 0; //  0 - 261
 	uint16_t cycle = 0;    //  0 - 340
 

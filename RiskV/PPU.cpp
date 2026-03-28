@@ -107,7 +107,7 @@ void PPU::loadBackgroundShifters() {
 
 void PPU::updateShifters() {
 	// 0x2001
-	if (mask & 0b1000) {
+	if (mask & 0b00011000) {
 		bgShifterPatternLow <<= 1;
 		bgShifterPatternHigh <<= 1;
 		bgShifterAttrLow <<= 1;
@@ -418,14 +418,14 @@ uint16_t PPU::mirrorAddress(uint16_t address, EMirrorMode mirrorMode){
 }
 
 void PPU::incrementScrollX() {
-	// Only scroll if background or sprites are enabled
+	
 	if (mask & 0b00011000) {
-		if ((vramAddress & 0x001F) == 31) { // If coarse X == 31 (end of nametable)
-			vramAddress &= ~0x001F;         // Reset coarse X to 0
-			vramAddress ^= 0x0400;          // Toggle the horizontal nametable bit
+		if ((vramAddress & 0x001F) == 31) { 
+			vramAddress &= ~0x001F;         
+			vramAddress ^= 0x0400;         
 		}
 		else {
-			vramAddress++;                  // Otherwise, just move one tile right
+			vramAddress++;                  
 		}
 	}
 }
@@ -455,14 +455,14 @@ void PPU::incrementScrollY() {
 }
 
 void PPU::transferAddressX() {
-	// Reloads the X position from tempVramAddress at the end of a scanline
+	
 	if (mask & 0b00011000) {
 		vramAddress = (vramAddress & 0xFBE0) | (tempVramAddress & 0x041F);
 	}
 }
 
 void PPU::transferAddressY() {
-	// Reloads the Y position from tempVramAddress at the start of a frame
+	
 	if (mask & 0b00011000) {
 		vramAddress = (vramAddress & 0x841F) | (tempVramAddress & 0x7BE0);
 	}
@@ -541,7 +541,13 @@ uint8_t PPU::step(NESLogger* logger) {
 
 	
 
+	if (scanline == -1 && cycle == 339 && oddFrame && (mask & 0b00011000)) {
+		cycle++;
+	}
+
+
 	cycle++;
+
 	if (cycle >= 341) {
 		cycle = 0;
 		scanline++;
@@ -549,6 +555,7 @@ uint8_t PPU::step(NESLogger* logger) {
 		if (scanline >= 261) {
 			scanline = -1;
 			frameEnd = true;
+			oddFrame = !oddFrame;
 		}
 	}
 

@@ -67,6 +67,23 @@ uint8_t NES::read(uint16_t address) {
 	else if (address >= PPUSTART && address <= PPUENDMIRROED) {
 		data = ppu->cpuRead(address & 0x0007);
 	}
+	else if (address == 0x4016) { // Player 1
+		
+		uint8_t data = (controllerState[0] & 0x80) > 0;
+
+		
+		controllerState[0] <<= 1;
+		
+
+		return data;
+	}
+	else if (address == 0x4017) { // Player 2
+		uint8_t data = (controllerState[1] & 0x80) > 0;
+		
+		controllerState[1] <<= 1;
+		
+		return data;
+	}
 
 
 	else if (address >= ROMSTART && address <= ROMEND) {
@@ -109,6 +126,13 @@ void NES::write(uint16_t address, uint8_t data) {
 		currentCycles += 512;
 		extraCycles += 512;
 	}
+	else if (address == 0x4016) { //controlurrr
+		if (data & 0x0001) {
+			controllerState[0] = controller[0];
+			controllerState[1] = controller[1];
+		}
+	}
+
 	else {
 		uint32_t mappedAddress = 0;
 		mapper->cpuMapWrite(address, mappedAddress, data);
