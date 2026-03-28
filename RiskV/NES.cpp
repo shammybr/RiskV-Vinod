@@ -68,6 +68,9 @@ uint8_t NES::read(uint16_t address) {
 	else if (address >= PPUSTART && address <= PPUENDMIRROED) {
 		data = ppu->cpuRead(address & 0x0007);
 	}
+	else if (address == 0x4015) {
+		data = apu->read(address);
+	}
 	else if (address == 0x4016) { // Player 1
 		
 		uint8_t data = (controllerState[0] & 0x80) > 0;
