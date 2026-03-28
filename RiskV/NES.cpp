@@ -5,7 +5,7 @@
 NES::NES() {
 	ppu = new PPU(this);
 	on = true;
-	reset();
+
 
 
 }
@@ -27,6 +27,7 @@ void NES::loadRom(NESROM* rom){
 		break;
 	}
 
+	reset();
 }
 
 void NES::unloadRom() {
@@ -51,8 +52,7 @@ void NES::reset() {
 	regPC = lByte + (hByte << 8);
 
 
-	//testar nestest apagar later
-	regPC = 0xC000;
+
 }
 
 uint8_t NES::read(uint16_t address) {
@@ -81,6 +81,11 @@ uint8_t NES::read(uint16_t address) {
 		}
 	}
 
+	if (address == 0x4014) {
+		static int dmaCount = 0;
+		printf("DMA Count: %d\n", ++dmaCount);
+	}
+
 	return data;
 }
 
@@ -94,9 +99,23 @@ void NES::write(uint16_t address, uint8_t data) {
 		ppu->cpuWrite(address & 0x0007, data);
 
 	}
+	else if (address == 0x4014) { // OAM DMA
+		uint16_t dmaBase = data << 8;
+		for (int i = 0; i < 256; i++) {
+			ppu->oam[ppu->oamAddress] = read(dmaBase + i);
+			ppu->oamAddress++;
+		}
+
+		currentCycles += 512;
+		extraCycles += 512;
+	}
 	else {
 		uint32_t mappedAddress = 0;
 		mapper->cpuMapWrite(address, mappedAddress, data);
+	}
+
+	if (address == 0x4014) {
+		static int dmaCount = 0;
 	}
 
 }
@@ -856,6 +875,7 @@ void NES::I_JMP(uint16_t address) {
 
 uint8_t NES::step(NESLogger* logger) {
 
+
 	uint8_t opcode = read(regPC++);
 
 	//log
@@ -1198,7 +1218,7 @@ uint8_t NES::step(NESLogger* logger) {
 			break;
 
 
-
+		
 
 		default: std::cout << "OPCODE ERROR MEME NUMBER: " << opcode << std::endl;	break;
 		
@@ -1210,13 +1230,38 @@ uint8_t NES::step(NESLogger* logger) {
 
 	currentCycles += baseCycles + extraCycles;
 
+	if (ppu->nmiSignal) {
+		nmi();
+		extraCycles += 7;
+	}
+
 	return baseCycles + extraCycles;
 
 }
 
 
 
+void NES::nmi() {
+	
+	push((regPC >> 8) & 0xFF);
+	push(regPC & 0xFF);
 
+
+	push((regP & ~0b0001'0000) | 0b0010'0000);
+
+
+	regP |= 0b0000'0100;
+
+
+	uint8_t lByte = read(0xFFFA);
+	uint8_t hByte = read(0xFFFB);
+
+
+	regPC = lByte + (hByte << 8);
+
+
+	ppu->nmiSignal = false;
+}
 
 
 

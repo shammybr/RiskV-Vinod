@@ -33,6 +33,12 @@
     <ClCompile Include="PPU.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SDLNTSC.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\nes_ntsc\nes_ntsc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="NES.h">
@@ -50,5 +56,36 @@
     <ClInclude Include="PPU.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="lib\nes_ntsc\nes_ntsc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\nes_ntsc\nes_ntsc_config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\nes_ntsc\nes_ntsc_impl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SDLNTSC.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="lib\nes_ntsc\tests\1.line_phase.nes" />
+    <None Include="lib\nes_ntsc\tests\2.frame_phase.nes" />
+    <None Include="lib\nes_ntsc\tests\3.special_frame_phase.nes" />
+    <None Include="lib\nes_ntsc\nes_ntsc.inl">
+      <Filter>Header Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="lib\nes_ntsc\changes.txt" />
+    <Text Include="lib\nes_ntsc\license.txt" />
+    <Text Include="lib\nes_ntsc\nes_ntsc.txt" />
+    <Text Include="lib\nes_ntsc\readme.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="lib\nes_ntsc\test.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

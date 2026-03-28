@@ -1,6 +1,8 @@
+F:\RiskV-Vinod\RiskV\lib\nes_ntsc\nes_ntsc.c;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\nes_ntsc.obj
 F:\RiskV-Vinod\RiskV\NES.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\NES.obj
 F:\RiskV-Vinod\RiskV\NESLogger.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\NESLogger.obj
 F:\RiskV-Vinod\RiskV\NESROM.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\NESROM.obj
 F:\RiskV-Vinod\RiskV\PPU.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\PPU.obj
 F:\RiskV-Vinod\RiskV\RiskV.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\RiskV.obj
 F:\RiskV-Vinod\RiskV\RiskVProcessor.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\RiskVProcessor.obj
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\SDLNTSC.obj

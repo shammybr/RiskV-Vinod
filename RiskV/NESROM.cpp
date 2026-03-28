@@ -15,11 +15,17 @@ NESROM::NESROM(const std::string& fileName) {
         file.seekg(512, std::ios_base::cur);
     }
 
-    std::cout << "Name: " << header.name << " " << std::endl;
+    std::cout << "Name: " << std::string(header.name, 4) << " " << std::endl;
 
     // ID = 4 bits da flag 6 e flag 7
     mapperID = ((header.mapper2 >> 4) << 4) | (header.mapper1 >> 4);
 
+    if (header.mapper1 & 0b00000001) {
+        mirrorMode = MVERTICAL;
+    }
+    else {
+        mirrorMode = MHORIZONTAL;
+    }
 
     //CPU
     uint32_t prgSize = header.prgChunks * 16384;
@@ -43,10 +49,15 @@ NESROM::NESROM(const std::string& fileName) {
 
 
 uint8_t NESROM::read(uint16_t address){
+    if (address <= 0x1FFF) {
+        return vCHRMemory[address];
+    }
     return 0;
 }
 
 void NESROM::write(uint16_t address, uint8_t data)
 {
-
+    if (address <= 0x1FFF) {
+        vCHRMemory[address] = data;
+    }
 }

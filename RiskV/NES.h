@@ -216,6 +216,8 @@ public:
 
 	uint8_t step(NESLogger* logger);
 
+	void nmi();
+
 
 
 };

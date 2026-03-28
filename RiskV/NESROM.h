@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstdint>
 
+#pragma pack(push, 1)
 struct iNES_Header {
     char name[4];
     uint8_t prgChunks;
@@ -18,6 +19,7 @@ struct iNES_Header {
 
 
 };
+#pragma pack(pop)
 
 enum EMirrorMode {
     MVERTICAL,
