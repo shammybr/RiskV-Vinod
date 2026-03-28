@@ -4,6 +4,7 @@
 
 NES::NES() {
 	ppu = new PPU(this);
+	apu = new APU();
 	on = true;
 
 
@@ -109,7 +110,7 @@ uint8_t NES::read(uint16_t address) {
 void NES::write(uint16_t address, uint8_t data) {
 
 	if (address <= INTERNALMIRROED) {
-					//mirror
+		//mirror
 		memory[address & INTERNALEND] = data;
 	}
 	else if (address >= PPUSTART && address <= PPUENDMIRROED) {
@@ -131,6 +132,11 @@ void NES::write(uint16_t address, uint8_t data) {
 			controllerState[0] = controller[0];
 			controllerState[1] = controller[1];
 		}
+	}
+	else if (address >= 0x4000 && address <= 0x4017){
+
+		apu->write(address, data);
+
 	}
 
 	else {

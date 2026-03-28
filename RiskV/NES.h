@@ -3,7 +3,7 @@
 #include "NESROM.h"
 #include "NESLogger.h"
 #include "PPU.h"
-
+#include "APU.h"
 
 #define INTERNALSTART 0x0000
 #define INTERNALEND 0x07FF
@@ -62,6 +62,7 @@ public:
 	NESROM* currentRom = nullptr;
 	Mapper000* mapper = nullptr;
 	PPU* ppu = nullptr;
+	APU* apu = nullptr;
 
 public:
 	NES();

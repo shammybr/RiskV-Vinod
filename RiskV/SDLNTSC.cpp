@@ -9,7 +9,7 @@ SDLNTSC::SDLNTSC() : nesBuffer(NES_WIDTH* NES_HEIGHT, 0),
                     ntscOutput(NTSC_OUT_WIDTH* NTSC_OUT_HEIGHT, 0) 
 {
 
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
         std::cerr << "SDL Init Failed: " << SDL_GetError() << std::endl;
     }
 
@@ -32,6 +32,15 @@ SDLNTSC::SDLNTSC() : nesBuffer(NES_WIDTH* NES_HEIGHT, 0),
         setup = nes_ntsc_composite; 
         nes_ntsc_init(ntsc, &setup);
 
+
+       
+        spec.freq = 44100;
+        spec.format = SDL_AUDIO_F32;
+        spec.channels = 1;
+
+       
+        audioStream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
+        SDL_ResumeAudioStreamDevice(audioStream);
 
 
 
@@ -71,7 +80,7 @@ void SDLNTSC::draw(){
     SDL_RenderPresent(renderer);
 }
 
-bool SDLNTSC::poll(uint8_t *controller) {
+bool SDLNTSC::poll(uint8_t *controller, std::vector<float>& audioBuffer) {
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) {
             bool pressed = (event.type == SDL_EVENT_KEY_DOWN);
@@ -97,10 +106,34 @@ bool SDLNTSC::poll(uint8_t *controller) {
             }
         }
 
+
+
+
         else if (event.type == SDL_EVENT_QUIT) {
             return false;
         }
     }
 
     return true;
+}
+
+void SDLNTSC::playAudio(std::vector<float>& audioBuffer) {
+
+    if (audioBuffer.size() > 0) {
+
+        int max_queued_bytes = 4410 * sizeof(float);
+
+        int currently_queued = SDL_GetAudioStreamQueued(audioStream);
+
+        if (currently_queued < max_queued_bytes) {
+
+
+            SDL_PutAudioStreamData(audioStream,
+                audioBuffer.data(),
+                audioBuffer.size() * sizeof(float));
+
+        }
+
+        audioBuffer.clear();
+    }
 }

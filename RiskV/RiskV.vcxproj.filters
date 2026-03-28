@@ -39,6 +39,9 @@
     <ClCompile Include="lib\nes_ntsc\nes_ntsc.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="APU.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="NES.h">
@@ -66,6 +69,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SDLNTSC.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="APU.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

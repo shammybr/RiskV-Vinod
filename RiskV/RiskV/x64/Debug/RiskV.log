@@ -1,3 +1,7 @@
-﻿  SDLNTSC.cpp
+﻿  RiskV.cpp
+  SDLNTSC.cpp
 F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(12,17): warning C4804: '<': unsafe use of type 'bool' in operation
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(133,36): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+  Generating Code...
+F:\RiskV-Vinod\RiskV\RiskV.cpp(203): warning C4172: returning address of local variable or temporary: finalLog
   RiskV.vcxproj -> F:\RiskV-Vinod\RiskV\x64\Debug\RiskV.exe

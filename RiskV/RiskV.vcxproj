@@ -131,6 +131,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="APU.cpp" />
     <ClCompile Include="lib\nes_ntsc\nes_ntsc.c" />
     <ClCompile Include="NES.cpp" />
     <ClCompile Include="NESLogger.cpp" />
@@ -141,6 +142,7 @@
     <ClCompile Include="SDLNTSC.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="APU.h" />
     <ClInclude Include="lib\nes_ntsc\nes_ntsc.h" />
     <ClInclude Include="lib\nes_ntsc\nes_ntsc_config.h" />
     <ClInclude Include="lib\nes_ntsc\nes_ntsc_impl.h" />

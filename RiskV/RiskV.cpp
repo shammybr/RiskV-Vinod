@@ -58,7 +58,7 @@ int main(){
     while (nes->on) {
        
         
-        if (!sdl->poll(nes->controller)) {
+        if (!sdl->poll(nes->controller, nes->apu->audioBuffer)) {
             nes->on = false;
             sdl->quit();
         }
@@ -68,10 +68,17 @@ int main(){
         uint8_t cpuCycles = nes->step(logger);
         bool sleep = false;
 
+        for (int i = 0; i < cpuCycles; i++) {
+            nes->apu->step();
+
+
+        }
+
         for (int i = 0; i < (cpuCycles * 3); i++) {
             if (nes->ppu->step(logger)) {
                 sleep = true;
                 frames++;
+                sdl->playAudio(nes->apu->audioBuffer);
                 sdl->draw();
             }
             
