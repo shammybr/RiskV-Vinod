@@ -1,13 +1,20 @@
 #include "APU.h"
+#include "NES.h"
 
-APU::APU() {
+
+APU::APU(NES* nes) {
     pulse1 = new Pulse();
     pulse1->isPulse1 = true;
     pulse2 = new Pulse();
     pulse2->isPulse1 = false;
     noise = new Noise();
     triangle = new Triangle();
+    dpcm = new DPCM();
 
+    filterHP90 = new Filter(44100.0f, 90.0f, false);
+    filterHP440 = new Filter(44100.0f, 440.0f, false);
+    filterLP14k = new Filter(44100.0f, 14000.0f, true);
+    this->nes = nes;
 }
 
 void APU::write(uint16_t address, uint8_t data){
@@ -134,9 +141,52 @@ void APU::write(uint16_t address, uint8_t data){
             triangle->enabled = (data & 0x04) > 0;
             if (!triangle->enabled) triangle->lengthCounter = 0;
 
-            //noise->enabled = (data & 0x08) > 0;
-            //if (!noise->enabled) noise->lengthCounter = 0;
+            noise->enabled = (data & 0x08) > 0;
+            if (!noise->enabled) noise->lengthCounter = 0;
            
+           
+            dpcm->enabled = (data & 0x10) > 0;
+            if (dpcm->enabled) {
+                if (dpcm->currentBytesRemaining == 0) {
+                  
+                    dpcm->currentAddress = dpcm->sampleAddress;
+                    dpcm->currentBytesRemaining = dpcm->sampleLength;
+                }
+            }
+            else {
+              
+                dpcm->currentBytesRemaining = 0;
+            }
+
+            break;
+
+        case 0x4017:
+            // MI-- ----
+            // M = Mode (Bit 7), I = IRQ Inhibit (Bit 6)
+            frameCounterMode = (data & 0x80) > 0;
+            irqInhibit = (data & 0x40) > 0;
+
+            if (irqInhibit) {
+                frameIRQ = false;
+            }
+
+            // Reset the sequencer immediately
+            frameCounter = 0;
+
+            // Hardware Quirk: If Mode is 1, clock half and quarter frames immediately!
+            if (frameCounterMode) {
+                pulse1->clockEnvelope();
+                pulse2->clockEnvelope();
+                triangle->clockLinearCounter();
+                noise->clockEnvelope();
+
+                pulse1->clockLengthCounter();
+                pulse2->clockLengthCounter();
+                pulse1->clockSweep();
+                pulse2->clockSweep();
+                triangle->clockLengthCounter();
+                noise->clockLengthCounter();
+            }
             break;
 
         case 0x4008:
@@ -165,6 +215,33 @@ void APU::write(uint16_t address, uint8_t data){
            
             triangle->linearCounterReloadFlag = true;
             break;
+
+        case 0x4010:
+            // IL-- RRRR (IRQ Enable, Loop, Rate/Frequency)
+            dpcm->irqEnable = (data & 0x80) > 0;
+            dpcm->loop = (data & 0x40) > 0;
+            dpcm->timer = dpcm->dpcmPeriodTable[data & 0x0F];
+
+          
+            if (!dpcm->irqEnable) {
+                dpcm->irqPending = false;
+            }
+            break;
+
+        case 0x4011:
+            
+            dpcm->currentOutput = data & 0x7F;
+            break;
+
+        case 0x4012:
+           
+            dpcm->sampleAddress = 0xC000 + (data * 64);
+            break;
+
+        case 0x4013:
+           
+            dpcm->sampleLength = (data * 16) + 1;
+            break;
     }
   
 }
@@ -173,15 +250,25 @@ uint8_t APU::read(uint16_t address){
     if (address == 0x4015) {
         uint8_t status = 0;
 
-      
         if (pulse1->lengthCounter > 0) status |= 0x01;
         if (pulse2->lengthCounter > 0) status |= 0x02;
-
         if (triangle->lengthCounter > 0) status |= 0x04;
-        // if (noise->lengthCounter > 0)    status |= 0x08;
+        if (noise->lengthCounter > 0) status |= 0x08;
+
+  
+        if (frameIRQ) status |= 0x40;
+
+        frameIRQ = false;
+
+     
+        if (dpcm->currentBytesRemaining > 0) status |= 0x10;
+
+       
+        if (dpcm->irqPending) status |= 0x80;
 
         return status;
     }
+    return 0;
 
     
     return 0;
@@ -189,6 +276,44 @@ uint8_t APU::read(uint16_t address){
 
 void APU::step() {
     evenCycle = !evenCycle;
+
+    if (!dpcm->hasBuffer && dpcm->currentBytesRemaining > 0) {
+      
+         dpcm->sampleBuffer = nes->read(dpcm->currentAddress); 
+
+         if (nes->currentCycles % 2 == 1) {
+             nes->extraCycles += 4;
+         }
+         else {
+             nes->extraCycles += 3;
+         }
+
+        dpcm->hasBuffer = true;
+
+
+        if (dpcm->currentAddress == 0xFFFF) {
+            dpcm->currentAddress = 0x8000;
+        }
+        else {
+            dpcm->currentAddress++;
+        }
+
+   
+        dpcm->currentBytesRemaining--;
+
+        if (dpcm->currentBytesRemaining == 0) {
+            if (dpcm->loop) {
+          
+                dpcm->currentAddress = dpcm->sampleAddress;
+                dpcm->currentBytesRemaining = dpcm->sampleLength;
+            }
+            else if (dpcm->irqEnable) {
+              
+                dpcm->irqPending = true;
+            }
+        }
+    }
+
 
     if (evenCycle) {
        
@@ -202,26 +327,43 @@ void APU::step() {
 
     frameCounter++;
 
-    // 1/4 Frames: Clock  (~240Hz)
-    if (frameCounter == 7457 || frameCounter == 14913 || frameCounter == 22371 || frameCounter == 29829) {
-        pulse1->clockEnvelope();
-        pulse2->clockEnvelope();
-        triangle->clockLinearCounter();
+    if (frameCounterMode == 0) {
 
-        noise->clockEnvelope();
+        // MODE 0 (4-Step Sequence) 
+        // 1/4 Frames: 7457, 14913, 22371, 29829
+        if (frameCounter == 7457 || frameCounter == 14913 || frameCounter == 22371 || frameCounter == 29829) {
+            pulse1->clockEnvelope(); pulse2->clockEnvelope(); triangle->clockLinearCounter(); noise->clockEnvelope();
+        }
+        // 1/2 Frames: 14913, 29829
+        if (frameCounter == 14913 || frameCounter == 29829) {
+            pulse1->clockLengthCounter(); pulse2->clockLengthCounter(); triangle->clockLengthCounter(); noise->clockLengthCounter();
+            pulse1->clockSweep(); pulse2->clockSweep();
+        }
+    
+        if (frameCounter == 29829 && !irqInhibit) {
+            frameIRQ = true;
+        }
+        if (frameCounter == 29830) {
+            frameIRQ = !irqInhibit ? true : false; // One final check
+            frameCounter = 0;
+        }
+
     }
-
-    // 1/2 Frames: Clock  (~120Hz)
-    if (frameCounter == 14913 || frameCounter == 29829) {
-        pulse1->clockLengthCounter();
-        pulse2->clockLengthCounter();
-
-        pulse1->clockSweep();
-        pulse2->clockSweep();
-
-        triangle->clockLengthCounter();
-
-        noise->clockLengthCounter();
+    else {
+        //  MODE 1 (5-Step Sequence) 
+        // 1/4 Frames: 7457, 14913, 22371, 37281 (Step 4 is skipped!)
+        if (frameCounter == 7457 || frameCounter == 14913 || frameCounter == 22371 || frameCounter == 37281) {
+            pulse1->clockEnvelope(); pulse2->clockEnvelope(); triangle->clockLinearCounter(); noise->clockEnvelope();
+        }
+        // 1/2 Frames: 14913, 37281
+        if (frameCounter == 14913 || frameCounter == 37281) {
+            pulse1->clockLengthCounter(); pulse2->clockLengthCounter(); triangle->clockLengthCounter(); noise->clockLengthCounter();
+            pulse1->clockSweep(); pulse2->clockSweep();
+        }
+   
+        if (frameCounter == 37282) {
+            frameCounter = 0;
+        }
     }
 
 
@@ -248,22 +390,25 @@ void APU::step() {
     
         float t = (float)triangle->currentOutput;
         float n = (float)noise->currentOutput;
-        float d = 0.0f;
-        float tndOut = 0.0f;
+        float d = (float)dpcm->currentOutput;
 
+        float tndOut = 0.0f;
         if (t + n + d > 0) {
             tndOut = 159.79f / ((1.0f / ((t / 8227.0f) + (n / 12241.0f) + (d / 22638.0f))) + 100.0f);
         }
 
+
        
+  
         float rawSample = pulseOut + tndOut;
 
        
-        float filteredSample = rawSample - prevRawSample + (0.995f * prevFilteredSample);
-        prevRawSample = rawSample;
-        prevFilteredSample = filteredSample;
+        float output = filterHP90->step(rawSample);
+        output = filterHP440->step(output);
+        output = filterLP14k->step(output);
 
-        audioBuffer.push_back(filteredSample * 0.2f);
+
+        audioBuffer.push_back(output * 0.2f);
     }
 
 

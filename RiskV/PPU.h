@@ -10,6 +10,8 @@ public:
 	uint8_t oam[256];
 	uint8_t oamAddress = 0;
 
+
+
 	//registers
 	uint8_t status = 0x00; // 0x2002
 	uint8_t ctrl = 0x00;   // 0x2000

@@ -3,6 +3,10 @@
 
 NESROM::NESROM(const std::string& fileName) {
 
+    romName = fileName;
+    romName.erase(0, 3);
+    romName.erase(romName.size() - 3, 3);
+
     std::ifstream file(fileName, std::ios::binary);
     if (!file.is_open()) {
         std::cout << "Arquivo inexistente!" << std::endl;
@@ -28,6 +32,7 @@ NESROM::NESROM(const std::string& fileName) {
     }
 
     //CPU
+
     uint32_t prgSize = header.prgChunks * 16384;
     vPRGMemory.resize(prgSize);
     file.read((char*)vPRGMemory.data(), vPRGMemory.size());

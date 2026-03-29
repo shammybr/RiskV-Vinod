@@ -23,7 +23,9 @@ struct iNES_Header {
 
 enum EMirrorMode {
     MVERTICAL,
-    MHORIZONTAL
+    MHORIZONTAL,
+    MONESCREENLO,
+    MONESCREENHI
 };
 
 
@@ -35,7 +37,7 @@ public:
     iNES_Header header;
     uint8_t mapperID = 0;
     EMirrorMode mirrorMode;
-
+    std::string romName;
 
     NESROM(const std::string& fileName);
 

@@ -4,7 +4,7 @@
 
 NES::NES() {
 	ppu = new PPU(this);
-	apu = new APU();
+	apu = new APU(this);
 	on = true;
 
 
@@ -17,15 +17,34 @@ void NES::loadRom(NESROM* rom){
 
 	switch (currentRom->mapperID) {
 	case 0:
-		mapper = new Mapper000(currentRom->header.prgChunks);
+		mapper = new Mapper000(currentRom->header.prgChunks, currentRom->mirrorMode);
 
 		break;
 
+	case 1:
+		mapper = new Mapper001(currentRom->header.prgChunks, currentRom->header.chrChunks);
 
+		break;
 
 	default:
 		std::cout << "ERRO no Mapper ID: " << (int)currentRom->mapperID << std::endl;
 		break;
+	}
+
+
+	for (int i = 0; i < 8192; i++) {
+		saveRam[i] = 0x00;
+	}
+
+	std::string saveName = currentRom->romName + ".sav";
+	std::ifstream saveFile(saveName, std::ios::binary);
+
+	if (saveFile.is_open()) {
+		saveFile.read(reinterpret_cast<char*>(saveRam), 8192);
+		saveFile.close();
+	}
+	else {
+		std::cout << "Error: falha ao ler save file!" << std::endl;
 	}
 
 	reset();
@@ -53,7 +72,7 @@ void NES::reset() {
 	regPC = lByte + (hByte << 8);
 
 
-
+	std::cout << "BOOTING SYSTEM... Reset Vector is: 0x" << std::hex << regPC << std::endl;
 }
 
 uint8_t NES::read(uint16_t address) {
@@ -98,6 +117,15 @@ uint8_t NES::read(uint16_t address) {
 				if (mapper->cpuMapRead(address, mappedAddress)) {
 					data = currentRom->vPRGMemory[mappedAddress];
 				}
+			}
+		}
+	}
+
+	if (address >= 0x6000 && address <= 0x7FFF) {
+		if (mapper) {
+			uint32_t mappedAddress = 0;
+			if (mapper->cpuMapRead(address, mappedAddress)) {
+				return saveRam[mappedAddress];
 			}
 		}
 	}
@@ -147,13 +175,49 @@ void NES::write(uint16_t address, uint8_t data) {
 		mapper->cpuMapWrite(address, mappedAddress, data);
 	}
 
+	if (address >= 0x6000 && address <= 0x7FFF) {
+		uint32_t mappedAddress = 0;
+		if (mapper->cpuMapWrite(address, mappedAddress, data)) {
+			saveRam[mappedAddress] = data;
+
+			wannaSave = true;
+			saveTime = 60;
+
+
+		}
+	}
+
 	if (address == 0x4014) {
 		static int dmaCount = 0;
 	}
 
 }
 
+void NES::saveGame() {
+	if (saveTime <= 0) {
+		if (currentRom) {
 
+			std::string saveName = "ROM/" + currentRom->romName + ".sav";
+
+			std::ofstream saveFile(saveName, std::ios::binary);
+
+			if (saveFile.is_open()) {
+				saveFile.write(reinterpret_cast<char*>(saveRam), 8192);
+				saveFile.close();
+				std::cout << "Jogo salvo em " << saveName << std::endl;
+			}
+			else {
+				std::cout << "Error: falha ao criar save file! " << saveName << std::endl;
+			}
+
+			wannaSave = false;
+			
+		}
+	}
+	else {
+		saveTime--;
+	}
+}
 
 void NES::updateFlags(uint8_t value) {
 
@@ -906,14 +970,14 @@ void NES::I_JMP(uint16_t address) {
 	regPC = address;
 }
 
-uint8_t NES::step(NESLogger* logger) {
+int NES::step(NESLogger* logger) {
 
 
 	uint8_t opcode = read(regPC++);
 
 	//log
 	InstructionInfo info = logger->opTable[opcode];
-	uint8_t baseCycles = info.cycles;
+	int baseCycles = info.cycles;
 	extraCycles = 0;
 
 	isPageCrossed = false;
@@ -1267,6 +1331,11 @@ uint8_t NES::step(NESLogger* logger) {
 		nmi();
 		extraCycles += 7;
 	}
+	else if (apu->frameIRQ && !(regP & 0b0000'0100)) {
+		
+		irq();
+		extraCycles += 7;
+	}
 
 	return baseCycles + extraCycles;
 
@@ -1297,16 +1366,235 @@ void NES::nmi() {
 }
 
 
+void NES::irq() {
 
+	push((regPC >> 8) & 0xFF);
+	push(regPC & 0xFF);
+
+	
+	push((regP & ~0b0001'0000) | 0b0010'0000);
+
+	// Interrupt Disable flag
+	regP |= 0b0000'0100;
+
+
+	uint8_t lByte = read(0xFFFE);
+	uint8_t hByte = read(0xFFFF);
+
+	regPC = lByte + (hByte << 8);
+}
 
 
 //mappers
-Mapper000::Mapper000(uint8_t prgBanks){
+Mapper000::Mapper000(uint8_t prgBanks, EMirrorMode _mirroringMode){
 
 	prgChunks = prgBanks;
-
+	mirroringMode = _mirroringMode;
 	
 }
+
+Mapper001::Mapper001(uint8_t prgChunks, uint8_t chrChunks) {
+	prgBanks = prgChunks;
+	chrBanks = chrChunks;
+
+	prgBankOffset[0] = 0;
+	prgBankOffset[1] = (prgBanks - 1) * 0x4000;
+	controlRegister = 0x0C;
+}
+
+void Mapper001::updateOffsets() {
+	
+	uint8_t prgMode = (controlRegister >> 2) & 0x03;
+
+	
+	uint8_t targetBank = prgBank & 0x0F;
+
+
+	uint8_t fixedBankFirst = 0;
+	uint8_t fixedBankLast = prgBanks - 1;
+
+
+	if (prgBanks == 32) {
+		
+		uint8_t suromBit = chrBank0 & 0x10;
+
+		targetBank |= suromBit;
+		fixedBankFirst |= suromBit;
+		fixedBankLast = 0x0F | suromBit;
+	}
+
+
+	switch (prgMode) {
+	case 0:
+	case 1:
+		targetBank &= 0xFE;
+		prgBankOffset[0] = targetBank * 0x4000;
+		prgBankOffset[1] = (targetBank + 1) * 0x4000;
+		break;
+	case 2:
+		prgBankOffset[0] = fixedBankFirst * 0x4000;
+		prgBankOffset[1] = targetBank * 0x4000;
+		break;
+	case 3:
+		prgBankOffset[0] = targetBank * 0x4000;
+		prgBankOffset[1] = fixedBankLast * 0x4000;
+		break;
+	}
+
+	uint8_t chrMode = (controlRegister >> 4) & 0x01;
+
+	if (chrMode == 0) {
+		
+		uint8_t bank = chrBank0 & 0xFE;
+		chrBankOffset[0] = bank * 0x1000;
+		chrBankOffset[1] = (bank + 1) * 0x1000;
+	}
+	else {
+
+		chrBankOffset[0] = chrBank0 * 0x1000;
+		chrBankOffset[1] = chrBank1 * 0x1000;
+	}
+
+	targetBank %= prgBanks;
+
+	if (chrBanks > 0) {
+		uint8_t safeBank0 = chrBank0 % (chrBanks * 2); 
+		uint8_t safeBank1 = chrBank1 % (chrBanks * 2);
+
+		if (chrMode == 0) {
+			uint8_t bank = safeBank0 & 0xFE;
+			chrBankOffset[0] = bank * 0x1000;
+			chrBankOffset[1] = (bank + 1) * 0x1000;
+		}
+		else {
+			chrBankOffset[0] = safeBank0 * 0x1000;
+			chrBankOffset[1] = safeBank1 * 0x1000;
+		}
+	}
+	
+}
+
+bool Mapper001::cpuMapWrite(uint16_t address, uint32_t& mappedAddress, uint8_t data) {
+	if (address >= 0x8000) {
+
+		
+		if (data & 0x80) {
+			shiftRegister = 0x10;
+			controlRegister |= 0x0C; 
+			updateOffsets();
+			return true;
+		}
+
+		
+		uint8_t bit = data & 0x01;
+
+		
+		bool isFull = (shiftRegister & 0x01) > 0;
+
+		shiftRegister >>= 1;
+		shiftRegister |= (bit << 4); 
+
+		
+		if (isFull) {
+
+			
+			uint8_t targetRegister = (address >> 13) & 0x03;
+
+
+
+			switch (targetRegister) {
+			case 0: // $8000 - $9FFF (Control)
+				controlRegister = shiftRegister;
+
+
+			
+				switch (controlRegister & 0x03) {
+				case 0: mirroringMode = MONESCREENLO; break;
+				case 1: mirroringMode = MONESCREENHI; break;
+				case 2: mirroringMode = MVERTICAL; break;
+				case 3: mirroringMode = MHORIZONTAL; break;
+				}
+			
+				break;
+			case 1: // $A000 - $BFFF (CHR Bank 0)
+				chrBank0 = shiftRegister;
+				break;
+			case 2: // $C000 - $DFFF (CHR Bank 1)
+				chrBank1 = shiftRegister;
+				break;
+			case 3: // $E000 - $FFFF (PRG Bank)
+				prgBank = shiftRegister;
+				break;
+			}
+
+			
+			updateOffsets();
+
+			
+			shiftRegister = 0x10;
+		}
+
+		return true;
+	}
+
+	
+	if (address >= 0x6000 && address <= 0x7FFF) {
+		mappedAddress = address & 0x1FFF;
+		return true;
+	}
+
+	return false;
+}
+
+bool Mapper001::cpuMapRead(uint16_t address, uint32_t& mappedAddress) {
+
+	
+	if (address >= 0x8000 && address <= 0xBFFF) {
+		mappedAddress = prgBankOffset[0] + (address & 0x3FFF);
+		return true;
+	}
+
+	
+	if (address >= 0xC000 && address <= 0xFFFF) {
+		mappedAddress = prgBankOffset[1] + (address & 0x3FFF);
+		return true;
+	}
+
+
+	if (address >= 0x6000 && address <= 0x7FFF) {
+		mappedAddress = address & 0x1FFF;
+		return true;
+	}
+
+
+
+	return false;
+}
+
+bool Mapper001::ppuMapRead(uint16_t address, uint32_t& mappedAddress) {
+	if (address < 0x2000) {
+		
+		if (chrBanks == 0) {
+			mappedAddress = address;
+			return true;
+		}
+
+		
+		if (address <= 0x0FFF) {
+			mappedAddress = chrBankOffset[0] + (address & 0x0FFF);
+		}
+		else {
+			mappedAddress = chrBankOffset[1] + (address & 0x0FFF);
+		}
+		return true;
+	}
+	return false;
+}
+
+bool Mapper001::ppuMapWrite(uint16_t address, uint32_t& mappedAddress) {
+	return ppuMapRead(address, mappedAddress);
+}
+
 
 bool Mapper000::cpuMapRead(uint16_t address, uint32_t& mappedAddress)
 {
@@ -1336,4 +1624,20 @@ bool Mapper000::cpuMapWrite(uint16_t address, uint32_t& mappedAddress, uint8_t d
 	return false;
 
 
+}
+
+bool Mapper000::ppuMapWrite(uint16_t address, uint32_t& mappedAddress) {
+	if (address >= 0x0000 && address <= 0x1FFF) {
+		if (prgChunks == 0) {
+		
+			mappedAddress = address;
+			return true;
+		}
+	}
+	return false; 
+}
+
+bool Mapper000::ppuMapRead(uint16_t address, uint32_t& mappedAddress)
+{
+	return false;
 }

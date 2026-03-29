@@ -31,7 +31,7 @@ public:
 
 	int burst_phase;
 
-	SDLNTSC();
+	SDLNTSC(int windowW, int windowH);
 
 	void quit();
 	void draw();

@@ -2,6 +2,9 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
+      <FullPath>F:\RiskV-Vinod\RiskV\x64\Release\SDL3.dll</FullPath>
+    </ProjectOutput>
+    <ProjectOutput>
       <FullPath>F:\RiskV-Vinod\RiskV\x64\Release\RiskV.exe</FullPath>
     </ProjectOutput>
   </ProjectOutputs>

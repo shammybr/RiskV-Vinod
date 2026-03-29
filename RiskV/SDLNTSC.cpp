@@ -5,7 +5,7 @@
 #include <vector>
 
 
-SDLNTSC::SDLNTSC() : nesBuffer(NES_WIDTH* NES_HEIGHT, 0),
+SDLNTSC::SDLNTSC(int windowW, int windowH) : nesBuffer(NES_WIDTH* NES_HEIGHT, 0),
                     ntscOutput(NTSC_OUT_WIDTH* NTSC_OUT_HEIGHT, 0) 
 {
 
@@ -15,18 +15,24 @@ SDLNTSC::SDLNTSC() : nesBuffer(NES_WIDTH* NES_HEIGHT, 0),
 
     else {
        
-        window = SDL_CreateWindow("NES NTSC Emulator", NTSC_OUT_WIDTH, NTSC_OUT_HEIGHT * 2, 0);
+        window = SDL_CreateWindow("CAVALO NES", windowW, windowH, SDL_WINDOW_RESIZABLE);
         renderer = SDL_CreateRenderer(window, NULL);
         //vsync
         SDL_SetRenderVSync(renderer, 1);
 
-
+        SDL_SetRenderLogicalPresentation(
+            renderer,
+            640,
+            480,
+            SDL_LOGICAL_PRESENTATION_LETTERBOX
+        );
         texture = SDL_CreateTexture(renderer,
             SDL_PIXELFORMAT_RGB565,
             SDL_TEXTUREACCESS_STREAMING,
             NTSC_OUT_WIDTH,
             NTSC_OUT_HEIGHT);
 
+        SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_PIXELART);
 
         ntsc = (nes_ntsc_t*)malloc(sizeof(nes_ntsc_t));
         setup = nes_ntsc_composite; 
@@ -64,6 +70,10 @@ void SDLNTSC::draw(){
    
     burst_phase ^= 1;
 
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+
+    SDL_RenderClear(renderer);
+
 
     nes_ntsc_blit(ntsc,
         nesBuffer.data(), NES_WIDTH, 
@@ -77,6 +87,16 @@ void SDLNTSC::draw(){
 
     SDL_RenderClear(renderer);
     SDL_RenderTexture(renderer, texture, NULL, NULL);
+
+    //scanlines
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 90);
+    for (int y = 0; y < 480; y += 2) {
+        SDL_RenderLine(renderer, 0.0f, (float)y, 640.0f, (float)y);
+    }
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
     SDL_RenderPresent(renderer);
 }
 

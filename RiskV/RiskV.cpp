@@ -22,7 +22,7 @@ int main(){
     NESLogger* logger = new NESLogger();
 
 
-    SDLNTSC* sdl = new SDLNTSC();
+    SDLNTSC* sdl = new SDLNTSC(1280, 720);
 
     //RiskVProcessor* processor = new RiskVProcessor(0x10000);
     NES* nes = new NES();
@@ -37,6 +37,7 @@ int main(){
     std::cout << "vPRGMemory size: " << rom->vPRGMemory.size() << "!" << std::endl;
     std::cout << "vCHRMemory size: " << rom->vCHRMemory.size() << "!" << std::endl;
     
+    /*
     //nestest
     int instructionCount = 0;
 
@@ -46,7 +47,7 @@ int main(){
         std::cout << "Error: falha ao criar log file!" << std::endl;
         return -1;
     }
-
+    */
 
     const std::chrono::nanoseconds frameTarget(16639260);
    
@@ -65,7 +66,7 @@ int main(){
 
         //logFile << logger->getLogStep(nes);
 
-        uint8_t cpuCycles = nes->step(logger);
+        int cpuCycles = nes->step(logger);
         bool sleep = false;
 
         for (int i = 0; i < cpuCycles; i++) {
@@ -80,6 +81,9 @@ int main(){
                 frames++;
                 sdl->playAudio(nes->apu->audioBuffer);
                 sdl->draw();
+                if (nes->wannaSave) {
+                    nes->saveGame();
+                }
             }
             
         }
@@ -89,8 +93,9 @@ int main(){
         if (sleep) {
 
             auto now = std::chrono::steady_clock::now();
+            
             if (now >= lastFpsTime + std::chrono::seconds(1)) {
-                std::cout << "FPS: " << frames << std::endl;
+                std::cout << std::dec << "FPS: " << frames << std::endl;
                 frames = 0;
                 lastFpsTime += std::chrono::seconds(1);
             }
@@ -109,7 +114,7 @@ int main(){
     }
 
 
-    logFile.close();
+   // logFile.close();
 
     CompareFiles("ROM/nestestLog.log", "ROM/nestest.log", "ROM/compareLog.txt");
     return 0;

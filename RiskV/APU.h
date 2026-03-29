@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <vector>
 
+class NES;
+
 struct Pulse {
     bool isPulse1 = true; 
     bool enabled = false;
@@ -121,8 +123,10 @@ struct Noise {
     uint16_t timerValue = 0;
     uint8_t currentOutput = 0;
 
+    bool enabled = false;
 	bool    envelopeLoop = false;
 	bool    constantVolume = false;
+
     uint8_t envelopeVolume = 0;         
     uint8_t envelopeDivider = 0;
 	uint8_t volume = 0;          // 0 - 15
@@ -258,11 +262,103 @@ struct Triangle {
 	}
 };
 
+struct Filter {
+    float alpha;
+    float prevX = 0.0f;
+    float prevY = 0.0f;
+    bool isLowPass;
+
+    Filter(float sampleRate, float cutoffFrequency, bool lowPass) {
+        isLowPass = lowPass;
+        float rc = 1.0f / (2.0f * 3.14159265359f * cutoffFrequency);
+        float dt = 1.0f / sampleRate;
+
+        if (isLowPass) {
+            alpha = dt / (rc + dt);
+        }
+        else {
+            alpha = rc / (rc + dt);
+        }
+    }
+
+    float step(float x) {
+        float y = 0.0f;
+        if (isLowPass) {
+            y = prevY + alpha * (x - prevY);
+        }
+        else {
+            y = alpha * (prevY + x - prevX);
+        }
+        prevX = x;
+        prevY = y;
+        return y;
+    }
+};
+
+struct DPCM {
+    bool enabled = false;
+    uint8_t currentOutput = 0; //0 - 127
+
+
+    uint16_t timer = 0;
+    uint16_t timerValue = 0;
+
+  
+    uint16_t sampleAddress = 0x0000;
+    uint16_t sampleLength = 0;
+    uint16_t currentAddress = 0x0000;
+    uint16_t currentBytesRemaining = 0;
+
+   
+    uint8_t shiftRegister = 0;
+    uint8_t bitsRemaining = 0;
+    uint8_t sampleBuffer = 0;
+    bool hasBuffer = false;
+
+   
+    bool loop = false;
+    bool irqEnable = false;
+    bool irqPending = false;
+
+    // NTSC Frequency Table
+    const uint16_t dpcmPeriodTable[16] = {
+        428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54
+    };
+
+    void tick() {
+        if (timerValue == 0) {
+            timerValue = timer;
+
+          
+            if (bitsRemaining > 0) {
+                if (shiftRegister & 1) {
+                    if (currentOutput <= 125) currentOutput += 2;
+                }
+                else {
+                    if (currentOutput >= 2) currentOutput -= 2;
+                }
+                shiftRegister >>= 1;
+                bitsRemaining--;
+            }
+
+       
+            if (bitsRemaining == 0 && hasBuffer) {
+                shiftRegister = sampleBuffer;
+                hasBuffer = false;
+                bitsRemaining = 8;
+            }
+        }
+        else {
+            timerValue--;
+        }
+    }
+};
+
 
 class APU {
 public:
 
-	APU();
+	APU(NES* nes);
 
 	
 	const double cyclesPerSample = 29780.5 / 735.0;
@@ -288,10 +384,20 @@ public:
 	Pulse* pulse2 = nullptr;
 	Noise* noise = nullptr;
 	Triangle* triangle = nullptr;
+    DPCM* dpcm = nullptr;
+    NES* nes = nullptr;
+
+    bool frameCounterMode = false; // 0 = 4-step, 1 = 5-step
+    bool irqInhibit = false;
+    bool frameIRQ = false;
 
 	const double audioClockAccumulator = 44100.0 / 1789773.0; 
 	std::vector<float> audioBuffer;
 
+
+    Filter* filterHP90;
+    Filter* filterHP440;
+    Filter* filterLP14k;
 
 	void write(uint16_t address, uint8_t data);
 	uint8_t read(uint16_t address);

@@ -17,11 +17,19 @@ uint8_t PPU::ppuRead(uint16_t address) {
 
 
 	if (address <= PPUADDRESSROMEND) {
-		if (nes) {
-			if (nes->currentRom) {
+		if (nes && nes->currentRom && nes->mapper) {
+			uint32_t mappedAddress = 0;
+			
+
+			if (nes->mapper->ppuMapRead(address, mappedAddress)) {
+				return nes->currentRom->vCHRMemory[mappedAddress];
+			}
+			else {
 				return nes->currentRom->read(address);
 			}
 		}
+
+		return 0x00;
 	}
 
 	else if (address >= PPUSTART && address <= PPUADDRESSVRAMEND) {
@@ -30,7 +38,7 @@ uint8_t PPU::ppuRead(uint16_t address) {
 
 		if (nes) {
 			if (nes->currentRom) {
-				uint16_t mirroredAddress = mirrorAddress(address, nes->currentRom->mirrorMode);
+				uint16_t mirroredAddress = mirrorAddress(address, nes->mapper->mirroringMode);
 
 				return vram[mirroredAddress];
 			}
@@ -96,34 +104,43 @@ uint8_t PPU::fetchPatternTableHigh() {
 }
 
 void PPU::loadBackgroundShifters() {
-	
 	bgShifterPatternLow = (bgShifterPatternLow & 0xFF00) | bgNextTileLSB;
 	bgShifterPatternHigh = (bgShifterPatternHigh & 0xFF00) | bgNextTileMSB;
 
-	//big nvidia inflation move
+	
 	bgShifterAttrLow = (bgShifterAttrLow & 0xFF00) | ((bgNextTileAttr & 0b01) ? 0xFF : 0x00);
 	bgShifterAttrHigh = (bgShifterAttrHigh & 0xFF00) | ((bgNextTileAttr & 0b10) ? 0xFF : 0x00);
 }
 
 void PPU::updateShifters() {
-	// 0x2001
-	if (mask & 0b00011000) {
-		bgShifterPatternLow <<= 1;
-		bgShifterPatternHigh <<= 1;
+    if (mask & 0b00011000) {
+        bgShifterPatternLow <<= 1;
+        bgShifterPatternHigh <<= 1;
+        
+      
 		bgShifterAttrLow <<= 1;
 		bgShifterAttrHigh <<= 1;
-	}
+    }
 }
-
 void PPU::ppuWrite(uint16_t address, uint8_t data) {
 
 	address = address & PPUENDMIRROED;
 
 
 	if (address <= PPUADDRESSROMEND) {
-		if (nes) {
-			if (nes->currentRom) {
-				nes->currentRom->write(address, data);
+		if (nes && nes->currentRom && nes->mapper) {
+			uint32_t mappedAddress = 0;
+			// Notice we are calling ppuMapWrite here!
+			if (nes->mapper->ppuMapWrite(address, mappedAddress)) {
+				nes->currentRom->vCHRMemory[mappedAddress] = data;
+
+				// Temporary log:
+				static int chrWrites = 0;
+				if (chrWrites < 5) {
+					std::cout << "CHR-RAM Write! Address: 0x" << std::hex << mappedAddress
+						<< " Data: 0x" << (int)data << std::endl;
+					chrWrites++;
+				}
 			}
 		}
 
@@ -136,7 +153,7 @@ void PPU::ppuWrite(uint16_t address, uint8_t data) {
 
 		if (nes) {
 			if (nes->currentRom) {
-				uint16_t mirroredAddress = mirrorAddress(address, nes->currentRom->mirrorMode);
+				uint16_t mirroredAddress = mirrorAddress(address, nes->mapper->mirroringMode);
 
 				vram[mirroredAddress] = data;
 			}
@@ -319,13 +336,35 @@ void PPU::drawPixel(){
 			int diffX = currentX - sX;
 			int diffY = currentY - (sY + 1); // sprites are delayed by 1 scanline
 
-			if (diffX >= 0 && diffX < 8 && diffY >= 0 && diffY < 8) {
+			bool is8x16 = (ctrl & 0b00100000) > 0;
+			int spriteHeight = is8x16 ? 16 : 8;
 
-				if (sAttr & 0b10000000) diffY = 7 - diffY; // vertical flip
-				if (sAttr & 0b01000000) diffX = 7 - diffX; // horizontal flip
+			if (diffX >= 0 && diffX < 8 && diffY >= 0 && diffY < spriteHeight) {
 
-				uint16_t spriteTable = (ctrl & 0b00001000) ? 0x1000 : 0x0000;
-				uint16_t spriteAddress = spriteTable + (sTile * 16) + diffY;
+				
+				if (sAttr & 0b10000000) diffY = (spriteHeight - 1) - diffY; 
+				if (sAttr & 0b01000000) diffX = 7 - diffX; 
+
+				uint16_t spriteTable = 0;
+				uint8_t tileIndex = sTile;
+
+				if (is8x16) {
+					
+					spriteTable = (sTile & 0x01) ? 0x1000 : 0x0000;
+					tileIndex = sTile & 0xFE; 
+
+					
+					if (diffY >= 8) {
+						tileIndex++;
+						diffY -= 8;
+					}
+				}
+				else {
+					//  8x8 
+					spriteTable = (ctrl & 0b00001000) ? 0x1000 : 0x0000;
+				}
+
+				uint16_t spriteAddress = spriteTable + (tileIndex * 16) + diffY;
 
 				uint8_t spriteLow = ppuRead(spriteAddress);
 				uint8_t spriteHigh = ppuRead(spriteAddress + 8);
@@ -356,6 +395,10 @@ void PPU::drawPixel(){
 
 	}
 
+	if (currentX < 8) {
+		if (!(mask & 0b00000100)) fgPixel = 0; 
+		if (!(mask & 0b00000010)) bgPixel = 0; 
+	}
 
 	uint8_t finalPixel = 0x00;
 	uint8_t finalPalette = 0x00;
@@ -405,13 +448,19 @@ void PPU::drawPixel(){
 }
 
 uint16_t PPU::mirrorAddress(uint16_t address, EMirrorMode mirrorMode){
-	//ignora bit 11
-	if (mirrorMode == MVERTICAL) {
-		return (address & 0x07FF);
-	}
-	else {
-				//shift 1 right - keep bit 10, -> original
-		return ((address >> 1) & 0b0100'0000'0000) | (address & 0b0011'1111'1111);
+
+
+	switch (mirrorMode) {
+		case MHORIZONTAL:
+			return ((address >> 1) & 0x0400) | (address & 0x03FF);
+		case MVERTICAL:
+			return (address & 0x07FF);
+		case MONESCREENLO:
+			return (address & 0x03FF);
+		case MONESCREENHI:
+			return (address & 0x03FF) + 0x0400;
+		default:
+			return address & 0x07FF;
 	}
 
 	return address & 0x07FF;
@@ -432,24 +481,24 @@ void PPU::incrementScrollX() {
 
 void PPU::incrementScrollY() {
 	if (mask & 0b00011000) {
-		if ((vramAddress & 0x7000) != 0x7000) { // If fine Y < 7
-			vramAddress += 0x1000;              // Increment fine Y
+		if ((vramAddress & 0x7000) != 0x7000) { 
+			vramAddress += 0x1000;              
 		}
 		else {
-			vramAddress &= ~0x7000;             // Reset fine Y to 0
-			int y = (vramAddress & 0x03E0) >> 5; // Extract coarse Y
+			vramAddress &= ~0x7000;             
+			int y = (vramAddress & 0x03E0) >> 5; 
 
 			if (y == 29) {
-				y = 0;                          // Reset coarse Y
-				vramAddress ^= 0x0800;          // Toggle the vertical nametable bit
+				y = 0;                          
+				vramAddress ^= 0x0800;          
 			}
 			else if (y == 31) {
-				y = 0;                          // Coarse Y can be set out of bounds by games, just reset it
+				y = 0;                         
 			}
 			else {
-				y++;                            // Otherwise, move one tile down
+				y++;                            
 			}
-			vramAddress = (vramAddress & ~0x03E0) | (y << 5); // Put coarse Y back
+			vramAddress = (vramAddress & ~0x03E0) | (y << 5); 
 		}
 	}
 }

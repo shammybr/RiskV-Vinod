@@ -22,21 +22,73 @@
 using std::uint16_t;
 using std::uint8_t;
 
-class Mapper000 {
+class Mapper {
 public:
 	uint8_t prgChunks;
 
-	Mapper000(uint8_t prgBanks);
+	Mapper() {};
+
+	EMirrorMode mirroringMode;
+
+	virtual bool cpuMapRead(uint16_t address, uint32_t& mappedAddress) { return 0; };
+	virtual bool cpuMapWrite(uint16_t address, uint32_t& mappedAddress, uint8_t data) { return 0; };
+	virtual bool ppuMapRead(uint16_t address, uint32_t& mappedAddress) { return 0; };
+	virtual bool ppuMapWrite(uint16_t address, uint32_t& mappedAddress) { return 0; };
+
+};
 
 
-	bool cpuMapRead(uint16_t address, uint32_t& mappedAddress);
-	bool cpuMapWrite(uint16_t address, uint32_t& mappedAddress, uint8_t data);
+class Mapper001 : public Mapper {
+private:
+	uint8_t prgBanks = 0;
+	uint8_t chrBanks = 0;
+
+	uint8_t shiftRegister = 0x10;
+
+	//  MMC1 Registers
+	uint8_t controlRegister = 0x0C; 
+	uint8_t chrBank0 = 0x00;
+	uint8_t chrBank1 = 0x00;
+	uint8_t prgBank = 0x00;
+
+
+	uint32_t prgBankOffset[2];
+	uint32_t chrBankOffset[2];
+
+
+
+	void updateOffsets();
+
+public:
+	Mapper001(uint8_t prgChunks, uint8_t chrChunks);
+
+	bool cpuMapRead(uint16_t address, uint32_t& mappedAddress) override;
+	bool ppuMapRead(uint16_t address, uint32_t& mappedAddress) override;
+	bool ppuMapWrite(uint16_t address, uint32_t& mappedAddress) override;
+	bool cpuMapWrite(uint16_t address, uint32_t& mappedAddress, uint8_t data) override;
+
+	// You will also need ppuMapRead and ppuMapWrite later for the graphics!
+};
+
+class Mapper000: public Mapper {
+public:
+	uint8_t prgChunks;
+
+	Mapper000(uint8_t prgBanks, EMirrorMode _mirroringMode);
+
+
+	bool cpuMapRead(uint16_t address, uint32_t& mappedAddress) override;
+	bool cpuMapWrite(uint16_t address, uint32_t& mappedAddress, uint8_t data) override;
+	bool ppuMapWrite(uint16_t address, uint32_t& mappedAddress) override;
+	bool ppuMapRead(uint16_t address, uint32_t& mappedAddress) override;
 };
 
 
 class NES {
 public:
 	uint8_t memory[2048] = {};
+	uint32_t saveRam[8192]{};
+
 	uint8_t regA = 0x000;
 	uint8_t regX = 0x000;
 	uint8_t regY = 0x000;
@@ -54,13 +106,16 @@ public:
 	uint64_t currentCycles = 7;
 	int cyclesRemaining = 0;
 
+	bool wannaSave = false;
+	uint8_t saveTime = 0;
+
 public:
 	bool on = false;
 	bool isPageCrossed = false;
-	uint8_t extraCycles = 0;
+	int extraCycles = 0;
 
 	NESROM* currentRom = nullptr;
-	Mapper000* mapper = nullptr;
+	Mapper* mapper = nullptr;
 	PPU* ppu = nullptr;
 	APU* apu = nullptr;
 
@@ -73,6 +128,8 @@ public:
 
 	uint8_t read(uint16_t address);
 	void write(uint16_t address, uint8_t data);
+
+	void saveGame();
 
 	void updateFlags(uint8_t value);
 	
@@ -222,9 +279,11 @@ public:
 
 	void reset();
 
-	uint8_t step(NESLogger* logger);
+	int step(NESLogger* logger);
 
 	void nmi();
+
+	void irq();
 
 
 
