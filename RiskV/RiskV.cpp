@@ -26,11 +26,11 @@ int main(){
 
     //RiskVProcessor* processor = new RiskVProcessor(0x10000);
     NES* nes = new NES();
-    NESROM* rom = new NESROM("ROM/mario.nes");
+    NESROM* rom = new NESROM("ROM/Dragon Quest III.nes");
     nes->ppu->videoBuffer = sdl->nesBuffer.data();
 
     nes->loadRom(rom);
-    nes->reset();
+  //  nes->reset();
 
    
 

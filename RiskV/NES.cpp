@@ -36,7 +36,8 @@ void NES::loadRom(NESROM* rom){
 		saveRam[i] = 0x00;
 	}
 
-	std::string saveName = currentRom->romName + ".sav";
+	std::string saveName = "ROM/" + currentRom->romName + ".sav";
+
 	std::ifstream saveFile(saveName, std::ios::binary);
 
 	if (saveFile.is_open()) {
@@ -72,7 +73,7 @@ void NES::reset() {
 	regPC = lByte + (hByte << 8);
 
 
-	std::cout << "BOOTING SYSTEM... Reset Vector is: 0x" << std::hex << regPC << std::endl;
+	
 }
 
 uint8_t NES::read(uint16_t address) {
