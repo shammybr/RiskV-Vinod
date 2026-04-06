@@ -143,6 +143,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="APU.h" />
+    <ClInclude Include="lib\json\json.hpp" />
+    <ClInclude Include="lib\json\json_fwd.hpp" />
     <ClInclude Include="lib\nes_ntsc\nes_ntsc.h" />
     <ClInclude Include="lib\nes_ntsc\nes_ntsc_config.h" />
     <ClInclude Include="lib\nes_ntsc\nes_ntsc_impl.h" />

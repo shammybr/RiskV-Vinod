@@ -74,6 +74,12 @@
     <ClInclude Include="APU.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="lib\json\json.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\json\json_fwd.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="lib\nes_ntsc\tests\1.line_phase.nes" />

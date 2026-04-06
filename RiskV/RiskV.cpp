@@ -37,17 +37,17 @@ int main(){
     std::cout << "vPRGMemory size: " << rom->vPRGMemory.size() << "!" << std::endl;
     std::cout << "vCHRMemory size: " << rom->vCHRMemory.size() << "!" << std::endl;
     
-    /*
+    
     //nestest
-    int instructionCount = 0;
+    //int instructionCount = 0;
 
-    std::ofstream logFile("ROM/nestestLog.log");
+   // std::ofstream logFile("ROM/DQ3Risc.log");
 
-    if (!logFile.is_open()) {
-        std::cout << "Error: falha ao criar log file!" << std::endl;
-        return -1;
-    }
-    */
+    //if (!logFile.is_open()) {
+      //  std::cout << "Error: falha ao criar log file!" << std::endl;
+       // return -1;
+   // }
+    
 
     const std::chrono::nanoseconds frameTarget(16639260);
    
@@ -56,49 +56,72 @@ int main(){
 
     auto lastFpsTime = std::chrono::steady_clock::now();
     int frames = 0;
+
+    int totalCpuCycles = 0;
+    int totalPpuCycles = 0;
+    int totalApuCycles = 0;
+    bool isCISC = false;
+    bool logNext = true;
     while (nes->on) {
-       
         
         if (!sdl->poll(nes->controller, nes->apu->audioBuffer)) {
             nes->on = false;
             sdl->quit();
         }
 
-        //logFile << logger->getLogStep(nes);
+ 
+           
+        //if(nes->opQueue[nes->queueIndex] == OP_FETCH_OPCODE)
+       //     logFile << logger->getLogStep(nes);
 
-        int cpuCycles = nes->step(logger);
+        // if (logger) {
+        //     if (logger->jsonlogStep(nes, totalCpuCycles, totalPpuCycles, totalApuCycles, false)) {
+
+            //   }
+        // }
+
+
+        int cpuCycles = nes->step(logger, isCISC);
+
+        totalCpuCycles += cpuCycles;
+
         bool sleep = false;
 
         for (int i = 0; i < cpuCycles; i++) {
             nes->apu->step();
-
+            totalApuCycles++;
 
         }
 
         for (int i = 0; i < (cpuCycles * 3); i++) {
             if (nes->ppu->step(logger)) {
-                sleep = true;
+                //   sleep = true;
                 frames++;
                 sdl->playAudio(nes->apu->audioBuffer);
                 sdl->draw();
                 if (nes->wannaSave) {
                     nes->saveGame();
                 }
+
+                // logger->jsonlogStep(nes, totalCpuCycles, totalPpuCycles, totalApuCycles, true);
+                //  nes->on = false;
+
             }
-            
+            totalPpuCycles++;
+
         }
-       
-        
+
+
+        auto now = std::chrono::steady_clock::now();
+
+        if (now >= lastFpsTime + std::chrono::seconds(1)) {
+            std::cout << std::dec << "FPS: " << frames << std::endl;
+            frames = 0;
+            lastFpsTime += std::chrono::seconds(1);
+        }
+
 
         if (sleep) {
-
-            auto now = std::chrono::steady_clock::now();
-            
-            if (now >= lastFpsTime + std::chrono::seconds(1)) {
-                std::cout << std::dec << "FPS: " << frames << std::endl;
-                frames = 0;
-                lastFpsTime += std::chrono::seconds(1);
-            }
 
 
             while (std::chrono::steady_clock::now() < targetTime) {
@@ -108,8 +131,9 @@ int main(){
 
             targetTime += frameTarget;
         }
+        
 
-
+     
 
     }
 
@@ -119,8 +143,6 @@ int main(){
     CompareFiles("ROM/nestestLog.log", "ROM/nestest.log", "ROM/compareLog.txt");
     return 0;
 }
-
-
 
 
 

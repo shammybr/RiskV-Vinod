@@ -95,7 +95,7 @@ void SDLNTSC::draw(){
         SDL_RenderLine(renderer, 0.0f, (float)y, 640.0f, (float)y);
     }
 
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+    //SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 
     SDL_RenderPresent(renderer);
 }

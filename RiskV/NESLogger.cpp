@@ -222,28 +222,36 @@ NESLogger::NESLogger() {
     opTable[0x8A] = { "TXA", IMP,  1, 2, 0 };
     opTable[0x9A] = { "TXS", IMP,  1, 2, 0 };
     opTable[0x98] = { "TYA", IMP,  1, 2, 0 };
+
+
+
+}
+
+void NESLogger::openJson() {
+    jsonFile.open("ROM/emulator_trace.json");
+    jsonFile << "[\n";
 }
 
 std::string NESLogger::getLogStep(NES* nes) {
     uint16_t pc = nes->regPC;
-    uint8_t opcode = nes->read(pc);
+    uint8_t opcode = nes->logRead(pc);
     InstructionInfo info = opTable[opcode];
 
     uint8_t b1 = 0, b2 = 0;
     char hexStr[15] = { 0 };
     char asmStr[40] = { 0 };
 
-    // --- READ BYTES ---
+    // --- logRead BYTES ---
     if (info.bytes == 1) {
         snprintf(hexStr, sizeof(hexStr), "%02X      ", opcode);
     }
     else if (info.bytes == 2) {
-        b1 = nes->read(pc + 1);
+        b1 = nes->logRead(pc + 1);
         snprintf(hexStr, sizeof(hexStr), "%02X %02X   ", opcode, b1);
     }
     else if (info.bytes == 3) {
-        b1 = nes->read(pc + 1);
-        b2 = nes->read(pc + 2);
+        b1 = nes->logRead(pc + 1);
+        b2 = nes->logRead(pc + 2);
         snprintf(hexStr, sizeof(hexStr), "%02X %02X %02X", opcode, b1, b2);
     }
 
@@ -266,17 +274,17 @@ std::string NESLogger::getLogStep(NES* nes) {
         break;
 
     case ZP:
-        snprintf(asmStr, sizeof(asmStr), "%s $%02X = %02X", info.name, b1, nes->read(b1));
+        snprintf(asmStr, sizeof(asmStr), "%s $%02X = %02X", info.name, b1, nes->logRead(b1));
         break;
 
     case ZPX:
         addr = (b1 + nes->regX) & 0xFF;
-        snprintf(asmStr, sizeof(asmStr), "%s $%02X,X @ %02X = %02X", info.name, b1, addr, nes->read(addr));
+        snprintf(asmStr, sizeof(asmStr), "%s $%02X,X @ %02X = %02X", info.name, b1, addr, nes->logRead(addr));
         break;
 
     case ZPY:
         addr = (b1 + nes->regY) & 0xFF;
-        snprintf(asmStr, sizeof(asmStr), "%s $%02X,Y @ %02X = %02X", info.name, b1, addr, nes->read(addr));
+        snprintf(asmStr, sizeof(asmStr), "%s $%02X,Y @ %02X = %02X", info.name, b1, addr, nes->logRead(addr));
         break;
 
     case REL:
@@ -290,42 +298,42 @@ std::string NESLogger::getLogStep(NES* nes) {
             snprintf(asmStr, sizeof(asmStr), "%s $%04X", info.name, addr);
         }
         else {
-            snprintf(asmStr, sizeof(asmStr), "%s $%04X = %02X", info.name, addr, nes->read(addr));
+            snprintf(asmStr, sizeof(asmStr), "%s $%04X = %02X", info.name, addr, nes->logRead(addr));
         }
         break;
 
     case ABSX:
         addr = (b1 | (b2 << 8)) + nes->regX;
-        snprintf(asmStr, sizeof(asmStr), "%s $%04X,X @ %04X = %02X", info.name, b1 | (b2 << 8), addr, nes->read(addr));
+        snprintf(asmStr, sizeof(asmStr), "%s $%04X,X @ %04X = %02X", info.name, b1 | (b2 << 8), addr, nes->logRead(addr));
         break;
 
     case ABSY:
         addr = (b1 | (b2 << 8)) + nes->regY;
-        snprintf(asmStr, sizeof(asmStr), "%s $%04X,Y @ %04X = %02X", info.name, b1 | (b2 << 8), addr, nes->read(addr));
+        snprintf(asmStr, sizeof(asmStr), "%s $%04X,Y @ %04X = %02X", info.name, b1 | (b2 << 8), addr, nes->logRead(addr));
         break;
 
     case IND: // Only used by JMP Indirect
         ptr = b1 | (b2 << 8);
         // Replicate the famous 6502 page boundary hardware bug!
         if (b1 == 0xFF) {
-            addr = nes->read(ptr) | (nes->read(ptr & 0xFF00) << 8);
+            addr = nes->logRead(ptr) | (nes->logRead(ptr & 0xFF00) << 8);
         }
         else {
-            addr = nes->read(ptr) | (nes->read(ptr + 1) << 8);
+            addr = nes->logRead(ptr) | (nes->logRead(ptr + 1) << 8);
         }
         snprintf(asmStr, sizeof(asmStr), "%s ($%04X) = %04X", info.name, ptr, addr);
         break;
 
     case INDX:
         ptr = (b1 + nes->regX) & 0xFF;
-        addr = nes->read(ptr) | (nes->read((ptr + 1) & 0xFF) << 8);
-        snprintf(asmStr, sizeof(asmStr), "%s ($%02X,X) @ %02X = %04X = %02X", info.name, b1, ptr, addr, nes->read(addr));
+        addr = nes->logRead(ptr) | (nes->logRead((ptr + 1) & 0xFF) << 8);
+        snprintf(asmStr, sizeof(asmStr), "%s ($%02X,X) @ %02X = %04X = %02X", info.name, b1, ptr, addr, nes->logRead(addr));
         break;
 
     case INDY:
         ptr = b1;
-        addr = (nes->read(ptr) | (nes->read((ptr + 1) & 0xFF) << 8)) + nes->regY;
-        snprintf(asmStr, sizeof(asmStr), "%s ($%02X),Y = %04X @ %04X = %02X", info.name, b1, addr - nes->regY, addr, nes->read(addr));
+        addr = (nes->logRead(ptr) | (nes->logRead((ptr + 1) & 0xFF) << 8)) + nes->regY;
+        snprintf(asmStr, sizeof(asmStr), "%s ($%02X),Y = %04X @ %04X = %02X", info.name, b1, addr - nes->regY, addr, nes->logRead(addr));
         break;
 
     default:
@@ -343,4 +351,54 @@ std::string NESLogger::getLogStep(NES* nes) {
 
     // Safely construct a C++ std::string and return it!
     return std::string(finalLog);
+}
+
+void NESLogger::flush() {
+    if (jsonLogBuffer.empty()) return;
+
+    for (size_t i = 0; i < jsonLogBuffer.size(); i++) {
+
+        json j = jsonLogBuffer[i];
+
+
+        static bool firstLog = true;
+        if (!firstLog) jsonFile << ",\n";
+        firstLog = false;
+
+        jsonFile << j.dump();
+    }
+
+    jsonLogBuffer.clear(); 
+}
+
+
+int NESLogger::jsonlogStep(NES* nes, uint64_t totalCpuCycles, uint64_t totalPpuCycles, uint64_t totalApuCycles, bool last){
+    EmuStep state;
+    state.pc = nes->regPC;
+    state.opcode = nes->logRead(nes->regPC); 
+    state.regA = nes->regA;
+    state.regX = nes->regX;
+    state.regY = nes->regY;
+    state.regP = nes->regP;
+    state.regSP = nes->regSP;
+    state.totalCpuCycles = totalCpuCycles;
+    state.totalPpuCycles = totalPpuCycles;
+    state.totalApuCycles = totalApuCycles;
+    state.ppuScanline = nes->ppu->scanline;
+    state.ppuCycle = nes->ppu->cycle;
+
+    jsonLogBuffer.push_back(state);
+
+    if (jsonLogBuffer.size() >= 50) {
+        flush();
+       
+    }
+
+    if (last) {
+        flush();
+        jsonFile << "\n]";
+        jsonFile.close();
+    }
+
+    return 0;
 }

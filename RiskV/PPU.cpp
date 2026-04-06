@@ -177,6 +177,36 @@ void PPU::ppuWrite(uint16_t address, uint8_t data) {
 
 
 }
+uint8_t PPU::logCpuRead(uint16_t registerN) {
+	uint8_t data = 0x00;
+
+	switch (registerN) {
+	case 2:
+		data = status;
+
+
+		break;
+
+	case 4: //OAMDATA
+		data = oam[oamAddress];
+
+		break;
+	case 7:
+
+		data = ppuDataBuffer;
+		uint8_t ppuDataBuffer2 = ppuRead(vramAddress);
+
+		if (vramAddress >= 0x3F00) {
+			data = ppuDataBuffer2;
+		}
+
+		break;
+	}
+
+
+
+	return data;
+}
 
 uint8_t PPU::cpuRead(uint16_t registerN){
 	uint8_t data = 0x00;

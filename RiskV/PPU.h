@@ -80,6 +80,7 @@ public:
 	void loadBackgroundShifters();
 	void updateShifters();
 	void ppuWrite(uint16_t address, uint8_t data);
+	uint8_t logCpuRead(uint16_t registerN);
 	void cpuWrite(uint16_t registerN, uint8_t data);
 	void drawPixel();
 

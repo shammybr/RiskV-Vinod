@@ -22,6 +22,65 @@
 using std::uint16_t;
 using std::uint8_t;
 
+enum MicroOp {
+	OP_NONE,
+	OP_FETCH_OPCODE,
+	OP_FETCH_LOW_BYTE,
+	OP_FETCH_HIGH_BYTE,
+	OP_FETCH_IMMEDIATE,
+
+	OP_FETCH_NMI_LOW,
+	OP_FETCH_NMI_HIGH,
+	OP_FETCH_IRQ_LOW,
+	OP_FETCH_IRQ_HIGH,
+	OP_READ_MEM,
+	OP_WRITE_MEM,
+	OP_DUMMY_READ,
+
+	OP_ALU_ADC,
+	OP_ALU_AND, 
+	OP_ALU_ORA, 
+	OP_ALU_EOR,
+
+	OP_ALU_CMP,
+	OP_ALU_CPX,
+	OP_ALU_CPY,
+	
+	OP_ALU_SBC,
+	OP_ALU_ASL,
+	OP_ALU_LSR,
+	OP_ALU_ROL,
+	OP_ALU_ROR,
+
+	OP_ALU_INC,
+	OP_ALU_DEC,
+	OP_ALU_BIT,
+
+	OP_ADD_X_LOW, 
+	OP_ADD_Y_LOW,
+
+	OP_FIX_HIGH_BYTE,
+	OP_POINTER_READ_LOW,
+	OP_POINTER_READ_HIGH,
+
+	OP_PUSH_DATA,
+	OP_PULL_DATA,
+	OP_DUMMY_STACK_READ,
+
+	OP_BRANCH_CHECK,
+	OP_BRANCH_UPDATE_PC,
+	OP_JUMP_CALC,
+
+	OP_TRANSFER_REG,
+
+	OP_INTERNAL_INC_DEC,
+
+	OP_SET_FLAG,
+	OP_CLEAR_FLAG
+
+};
+
+
 class Mapper {
 public:
 	uint8_t prgChunks;
@@ -279,13 +338,36 @@ public:
 
 	void reset();
 
-	int step(NESLogger* logger);
+	uint8_t logRead(uint16_t address);
+
+	int step(NESLogger* logger, bool isCISC);
+
+	int CISCStep(NESLogger* logger);
+
 
 	void nmi();
 
 	void irq();
 
 
+//////// RISC //////////////
+public:
+
+	uint8_t  iReg; // opcode
+	uint16_t addressLatch;    
+	uint16_t addressHighLatch;
+	uint8_t  dataLatch;           
+	uint8_t* connectedWire;
+	
+	MicroOp mathOP;
+	MicroOp opQueue[8];
+	int queueSize = 0;
+	int queueIndex = 0;
+	bool isZeroPage = false;
+
+	int RISCStep(NESLogger* logger);
+	void executeALU(MicroOp mathOP);
+	void iDecode(uint8_t opcode);
 
 };
 
