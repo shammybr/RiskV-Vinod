@@ -1,3 +1,2 @@
-﻿  RiskV.cpp
-F:\RiskV-Vinod\RiskV\RiskV.cpp(230): warning C4172: returning address of local variable or temporary: finalLog
+﻿  NES.cpp
   RiskV.vcxproj -> F:\RiskV-Vinod\RiskV\x64\Debug\RiskV.exe

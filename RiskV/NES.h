@@ -59,7 +59,6 @@ enum MicroOp {
 	OP_ADD_X_LOW, 
 	OP_ADD_Y_LOW,
 
-	OP_FIX_HIGH_BYTE,
 	OP_POINTER_READ_LOW,
 	OP_POINTER_READ_HIGH,
 
@@ -161,6 +160,7 @@ public:
 	uint8_t controller[2] = { 0, 0 };      //live
 	uint8_t controllerState[2] = { 0, 0 }; 
 
+	uint8_t cpuDataBus = 0;
 
 	uint64_t currentCycles = 7;
 	int cyclesRemaining = 0;

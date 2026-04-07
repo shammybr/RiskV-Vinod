@@ -140,7 +140,7 @@ uint8_t NES::logRead(uint16_t address) {
 
 uint8_t NES::read(uint16_t address) {
 
-	uint8_t data = 0b0000'0000;
+	uint8_t data = cpuDataBus;
 
 	if (address <= INTERNALMIRROED) {
 		//mirror
@@ -151,24 +151,21 @@ uint8_t NES::read(uint16_t address) {
 		data = ppu->cpuRead(address & 0x0007);
 	}
 	else if (address == 0x4015) {
-		data = apu->read(address);
+		data = (apu->read(address) & 0xDF) | (data & 0x20);
+
 	}
 	else if (address == 0x4016) { // Player 1
 		
-		uint8_t data = (controllerState[0] & 0x80) > 0;
+		uint8_t controllerBit = (controllerState[0] & 0x80) ? 1 : 0;
+		data = (data & 0xE0) | controllerBit;
 
-		
 		controllerState[0] <<= 1;
-		
-
-		return data;
 	}
 	else if (address == 0x4017) { // Player 2
-		uint8_t data = (controllerState[1] & 0x80) > 0;
-		
+		uint8_t controllerBit = (controllerState[0] & 0x80) ? 1 : 0;
+		data = (data & 0xE0) | controllerBit;
+
 		controllerState[1] <<= 1;
-		
-		return data;
 	}
 
 
@@ -198,10 +195,15 @@ uint8_t NES::read(uint16_t address) {
 		printf("DMA Count: %d\n", ++dmaCount);
 	}
 
+	if (address != 0x4015) {
+		cpuDataBus = data;
+	}
+
 	return data;
 }
 
 void NES::write(uint16_t address, uint8_t data) {
+	cpuDataBus = data;
 
 	if (address <= INTERNALMIRROED) {
 		//mirror
@@ -357,6 +359,10 @@ uint16_t NES::addressAbsoluteX(uint16_t address) {
 	isPageCrossed = hasPageCrossed(base, current);
 	return current;
 
+	if (isPageCrossed) {
+		uint16_t dummyAddress = (base & 0xFF00) | (current & 0x00FF);
+		read(dummyAddress); 
+	}
 
 }
 
@@ -365,6 +371,12 @@ uint16_t NES::addressAbsoluteY(uint16_t address) {
 	uint16_t base = addressAbsolute(address);
 	uint16_t current = base + regY;
 	isPageCrossed = hasPageCrossed(base, current);
+
+	if (isPageCrossed) {
+		uint16_t dummyAddress = (base & 0xFF00) | (current & 0x00FF);
+		read(dummyAddress);
+	}
+
 	return current;
 
 }
@@ -406,6 +418,7 @@ uint16_t NES::addressIndirectY(uint16_t address) {
 
 	uint8_t lByte = read(indirect);
 	uint8_t hByte = read((indirect + 1) & 0x00FF);
+
 
 	return ((lByte + (hByte << 8)) + regY);
 
@@ -557,6 +570,8 @@ void NES::I_LDA(uint16_t address) {
 	regA = read(address);
 
 	updateFlags(regA);
+
+
 }
 
 void NES::I_LDX(uint16_t address) {
@@ -1552,25 +1567,29 @@ int NES::RISCStep(NESLogger* logger) {
 
 		case OP_ADD_X_LOW: {
 			uint16_t sum = addressLatch + regX;
-			addressLatch = sum & 0xFF;
-
+			uint8_t newLow = sum & 0xFF;
 
 			bool pageCrossed = (sum > 0xFF) && !isZeroPage;
 
-
-			bool isReadOp = (opQueue[queueIndex] == OP_READ_MEM);
-
-			if (pageCrossed && isReadOp) {
-				for (int i = queueSize; i > queueIndex; i--) {
-					opQueue[i] = opQueue[i - 1];
-				}
-				opQueue[queueIndex] = OP_DUMMY_READ;
-				queueSize++;
-
-				addressHighLatch = (addressHighLatch + 1) & 0xFF;
-			}
 		
-			else if (pageCrossed) {
+			bool isWriteOp = (opQueue[queueIndex] == OP_WRITE_MEM) || (opQueue[queueIndex] == OP_INTERNAL_INC_DEC);
+			bool isReadOp = !isWriteOp;
+
+
+			if (isReadOp && !pageCrossed && !isZeroPage) {
+				addressLatch = newLow;
+				extraCycles = -1; 
+				break;
+			}
+
+
+			uint16_t dummyAddr = isZeroPage ? addressLatch : ((addressHighLatch << 8) | newLow);
+			read(dummyAddr); 
+
+			addressLatch = newLow;
+
+
+			if (pageCrossed) {
 				addressHighLatch = (addressHighLatch + 1) & 0xFF;
 			}
 			break;
@@ -1578,33 +1597,31 @@ int NES::RISCStep(NESLogger* logger) {
 
 		case OP_ADD_Y_LOW: {
 			uint16_t sum = addressLatch + regY;
-			addressLatch = sum & 0xFF;
-
+			uint8_t newLow = sum & 0xFF;
 
 			bool pageCrossed = (sum > 0xFF) && !isZeroPage;
 
 
-			bool isReadOp = (opQueue[queueIndex] == OP_READ_MEM);
+			bool isWriteOp = (opQueue[queueIndex] == OP_WRITE_MEM) || (opQueue[queueIndex] == OP_INTERNAL_INC_DEC);
+			bool isReadOp = !isWriteOp;
 
-			if (pageCrossed && isReadOp) {
-				for (int i = queueSize; i > queueIndex; i--) {
-					opQueue[i] = opQueue[i - 1];
-				}
-				opQueue[queueIndex] = OP_DUMMY_READ;
-				queueSize++;
 
-				addressHighLatch = (addressHighLatch + 1) & 0xFF;
+			if (isReadOp && !pageCrossed && !isZeroPage) {
+				addressLatch = newLow;
+				extraCycles = -1;
+				break;
 			}
 
-			else if (pageCrossed) {
+
+			uint16_t dummyAddr = isZeroPage ? addressLatch : ((addressHighLatch << 8) | newLow);
+			read(dummyAddr);
+
+			addressLatch = newLow;
+
+
+			if (pageCrossed) {
 				addressHighLatch = (addressHighLatch + 1) & 0xFF;
 			}
-			break;
-		}
-
-		case OP_FIX_HIGH_BYTE: {
-			
-			addressHighLatch = (addressHighLatch + 1) & 0xFF;
 			break;
 		}
 
@@ -1648,6 +1665,10 @@ int NES::RISCStep(NESLogger* logger) {
 
 			if (connectedWire != nullptr) {
 				data = *connectedWire;
+
+				if (iReg == 0x08) {
+					data |= 0x30;
+				}
 			}
 			else if (iReg == 0x20) { 
 				data = (queueIndex == 3) ? (regPC >> 8) : (regPC & 0xFF);
@@ -3434,11 +3455,7 @@ void NES::iDecode(uint8_t opcode) {
 			// I_TAX(); I_TAY(); I_TXA(); I_TYA(); I_TSX(); I_TXS(); 
 			break;
 
-		case 0xEA:
-			opQueue[0] = OP_DUMMY_READ;
-			queueSize = 1;
-			// break; //ayy lmao
-			break;
+
 
 			// bit
 		case 0x24:
@@ -3507,43 +3524,64 @@ void NES::iDecode(uint8_t opcode) {
 			//meme codes
 
 
-		case 0x0C:
 
+		/// NOOP
+
+
+		case 0xEA: case 0x1A: case 0x3A: case 0x5A: case 0x7A: case 0xDA: case 0xFA:
 			opQueue[0] = OP_DUMMY_READ;
-			opQueue[1] = OP_DUMMY_READ;
-			opQueue[2] = OP_DUMMY_READ;
-			queueSize = 3;
-
-			// 3. Cycles: This instruction takes 4 cycles. 
-			// If you have a cycle counter, add +1 if addressAbsolute sets isPageCrossed.
+			queueSize = 1;
 			break;
 
-		case 0x04:
+			
+		case 0x80: case 0x82: case 0x89: case 0xC2: case 0xE2:
+			opQueue[0] = OP_FETCH_IMMEDIATE;
+			queueSize = 1;
+			break;
 
-			opQueue[0] = OP_DUMMY_READ;
-			opQueue[1] = OP_DUMMY_READ;
+
+		case 0x04: case 0x44: case 0x64:
+			addressHighLatch = 0x0000;
+			opQueue[0] = OP_FETCH_LOW_BYTE;
+			opQueue[1] = OP_READ_MEM;
 			queueSize = 2;
-
-
-
-			// 3. Cycles: This instruction takes 3 cycles.
+			isZeroPage = true;
 			break;
 
-		case 0x14:
 
-			opQueue[0] = OP_DUMMY_READ;
-			opQueue[1] = OP_DUMMY_READ;
-			opQueue[2] = OP_DUMMY_READ;
+		case 0x14: case 0x34: case 0x54: case 0x74: case 0xD4: case 0xF4:
+			addressHighLatch = 0x0000;
+			opQueue[0] = OP_FETCH_LOW_BYTE;
+			opQueue[1] = OP_ADD_X_LOW;
+			opQueue[2] = OP_READ_MEM;
 			queueSize = 3;
-
-
-			// 3. Cycles: This instruction takes 4 cycles.
+			isZeroPage = true;
 			break;
 
 
+		case 0x0C:
+			opQueue[0] = OP_FETCH_LOW_BYTE;
+			opQueue[1] = OP_FETCH_HIGH_BYTE;
+			opQueue[2] = OP_READ_MEM;
+			queueSize = 3;
+			break;
 
 
-		default: std::cout << "OPCODE ERROR MEME NUMBER: " << opcode << std::endl;	break;
+		case 0x1C: case 0x3C: case 0x5C: case 0x7C: case 0xDC: case 0xFC:
+			opQueue[0] = OP_FETCH_LOW_BYTE;
+			opQueue[1] = OP_FETCH_HIGH_BYTE;
+			opQueue[2] = OP_ADD_X_LOW;
+			opQueue[3] = OP_READ_MEM;
+			queueSize = 4;
+			break;
+
+
+		default: 
+
+			std::cout << "OPCODE ERROR MEME NUMBER: " << opcode << std::endl;
+			opQueue[0] = OP_DUMMY_READ;
+			queueSize = 1;
+			break;
 
 	}
 

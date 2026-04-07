@@ -209,22 +209,25 @@ uint8_t PPU::logCpuRead(uint16_t registerN) {
 }
 
 uint8_t PPU::cpuRead(uint16_t registerN){
-	uint8_t data = 0x00;
+	uint8_t data = ppuDataLatch;
 
 	switch (registerN) {
 		case 2:
-			data = status;
+			//top 3 bits                        //bottom 5
+			data = (status & 0xE0) | (ppuDataLatch & 0x1F);
 
 			//bit 7 vai pra 0
 			status &= ~0b1000'0000;
 			addressLatch = false;
 
 			nmiSignal = false;
+
 			break;
 
 		case 4: //OAMDATA
 			data = oam[oamAddress];
 
+		
 			break;
 		case 7: 
 			
@@ -243,15 +246,20 @@ uint8_t PPU::cpuRead(uint16_t registerN){
 				vramAddress += 1;
 			}
 
+
+
 			break;
 	}
 
+	ppuDataLatch = data;
 
 
 	return data;
 }
 
 void PPU::cpuWrite(uint16_t registerN, uint8_t data){
+	ppuDataLatch = data;
+
 	switch (registerN) {
 		case 0: 
 			ctrl = data;

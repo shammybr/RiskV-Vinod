@@ -9,7 +9,7 @@ class PPU {
 public:
 	uint8_t oam[256];
 	uint8_t oamAddress = 0;
-
+	uint8_t ppuDataLatch = 0;
 
 
 	//registers
