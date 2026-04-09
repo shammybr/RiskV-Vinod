@@ -1475,12 +1475,12 @@ int NES::RISCStep(NESLogger* logger) {
 	
 		printf("Cycle: %llu [%s] | PC: %04X | I: %02X | P: %02X | Latch: %d | Error: %02X | Q: %d/%d | Op: %d\n",
 			currentCycles,
-			(currentCycles % 2 == 0 ? "EVEN" : "ODD "), // Critical for DPCM/DMA timing
+			(currentCycles % 2 == 0 ? "EVEN" : "ODD "), 
 			regPC,
 			iReg,
 			regP,
 			irqLatched,
-			memory[16], // ErrorCode at $0010
+			memory[16], 
 			queueIndex,
 			queueSize,
 			(int)currentOp);
@@ -1489,7 +1489,7 @@ int NES::RISCStep(NESLogger* logger) {
 
 	
 
-	// 1. POLLING LOGIC (Must stay at the top to simulate É”1/É”2 timing)
+
 	bool shouldPoll = false;
 	bool isBranch = ((iReg & 0x1F) == 0x10);
 
@@ -1497,7 +1497,7 @@ int NES::RISCStep(NESLogger* logger) {
 
 	if (isBranch) {
 		if (currentOp == OP_BRANCH_CHECK) {
-			// Peek at condition to see if this is the end of the instruction
+			
 			bool condition = false;
 			switch (iReg) {
 			case 0x90: condition = !(regP & 0x01); break;
@@ -1509,16 +1509,15 @@ int NES::RISCStep(NESLogger* logger) {
 			case 0x50: condition = !(regP & 0x40); break;
 			case 0x70: condition = (regP & 0x40); break;
 			}
-			// Test 9: If branch NOT taken, it ends here. Poll.
+		
 			shouldPoll = !condition;
 		}
 		else if (currentOp == OP_BRANCH_UPDATE_PC) {
-			// Test A: Taken branches MUST NOT poll on Cycle 3.
+			
 			shouldPoll = false;
 		}
 		else if (currentOp == OP_DUMMY_READ) {
-			// Test B & E: Page crosses (Cycle 4) MUST poll.
-			// In Test E, this poll happens BEFORE the read($4015) in the switch.
+
 			shouldPoll = true;
 		}
 	}
@@ -2213,8 +2212,8 @@ void NES::executeALU(MicroOp mathOP){
 
 			// 2. ORA part: Accumulator |= shifted value
 			regA |= dataLatch;
-			updateFlags(regA); // Update Zero and Negative based on A
-			// Note: ASL flags for the memory value are usually handled by the write
+			updateFlags(regA); 
+		
 			break;
 		}
 	}

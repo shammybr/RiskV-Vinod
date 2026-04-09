@@ -365,7 +365,7 @@ void APU::step(bool isGet) {
             }
 
 
-            // Time to apply the write!
+         
             uint8_t data = pending4017Value;
 
             frameCounterMode = (data & 0x80) > 0;
@@ -377,10 +377,10 @@ void APU::step(bool isGet) {
                     nes->currentCycles);
             }
 
-            // Reset the sequencer
+            
             frameCounter = 0;
 
-            // Hardware Quirk: If Mode is 1, clock half and quarter frames immediately!
+          
             if (frameCounterMode) {
                 pulse1->clockEnvelope();
                 pulse2->clockEnvelope();
