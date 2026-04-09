@@ -19,14 +19,17 @@ APU::APU(NES* nes) {
 
 void APU::write(uint16_t address, uint8_t data){
     switch (address) {
-        case 0x4000:
+            case 0x4000:
            
             //  DDLC VVVV
             pulse1->dutyMode = (data & 0xC0) >> 6;
             pulse1->lengthCounterHalt = (data & 0x20) > 0; 
             pulse1->constantVolume = (data & 0x10) > 0;
             pulse1->volume = (data & 0x0F);
-
+            if (debugTest7) {
+                printf("[Cycle %llu] $4000 Write: Pulse 1 Halt Flag is now %s\n",
+                    nes->currentCycles, pulse1->lengthCounterHalt ? "TRUE" : "FALSE");
+            }
 
             break;
 
@@ -52,6 +55,12 @@ void APU::write(uint16_t address, uint8_t data){
             pulse1->envelopeStart = true;
             pulse1->dutyStep = 0; 
 
+            if (debugTest7) {
+                if (pulse1->enabled) {
+                    printf("[Cycle %llu] $4003 Write: Pulse 1 Length is now %d\n",
+                        nes->currentCycles, pulse1->lengthCounter);
+                }
+            }
 
             break;
 
@@ -94,6 +103,8 @@ void APU::write(uint16_t address, uint8_t data){
             noise->envelopeLoop = (data & 0x20) > 0;
             noise->constantVolume = (data & 0x10) > 0;
             noise->volume = data & 0x0F;
+            noise->lengthCounterHalt = (data & 0x20) > 0;
+
             break;
 
         case 0x400D:
@@ -117,13 +128,27 @@ void APU::write(uint16_t address, uint8_t data){
 
         case 0x400F:
 
-            noise->lengthCounter = (data & 0xF8) >> 3;
-
+            if (noise->enabled) {
+                noise->lengthCounter = (data & 0xF8) >> 3;
+            }
            
             noise->envelopeStart = true;
             break;
 
         case 0x4015:
+
+            if (debugTest7) {
+                printf("[Cycle %llu | %s] APU::write($4015). Returning bit6=%d. Setting Delay to %d\n",
+                    nes->currentCycles,
+                    (nes->currentCycles % 2 == 0) ? "GET" : "PUT",
+                    (data & 0x40) >> 6,
+                    framIrqDelay);
+
+                if (!pulse1->enabled) {
+                    pulse1->lengthCounter = 0;
+                    printf("[Cycle %llu] Pulse 1 DISABLED via $4015. Length forced to 0.\n", nes->currentCycles);
+                }
+            }
 
             // Bit 0
             pulse1->enabled = (data & 0x01) > 0;
@@ -158,35 +183,41 @@ void APU::write(uint16_t address, uint8_t data){
                 dpcm->currentBytesRemaining = 0;
             }
 
+            dpcm->irqPending = false;
             break;
 
         case 0x4017:
             // MI-- ----
             // M = Mode (Bit 7), I = IRQ Inhibit (Bit 6)
-            frameCounterMode = (data & 0x80) > 0;
-            irqInhibit = (data & 0x40) > 0;
+            cycleOfLast4017Write = nes->currentCycles;
 
-            if (irqInhibit) {
-                frameIRQ = false;
+            if (debugTest7) {
+                printf("\n[Cycle %llu | %s] CPU Wrote %02X to $4017.\n",
+                    nes->currentCycles,
+                    (nes->currentCycles % 2 == 0) ? "GET" : "PUT",
+                    data);
             }
 
-            // Reset the sequencer immediately
-            frameCounter = 0;
+      
+            pending4017Value = data;
 
-            // Hardware Quirk: If Mode is 1, clock half and quarter frames immediately!
-            if (frameCounterMode) {
-                pulse1->clockEnvelope();
-                pulse2->clockEnvelope();
-                triangle->clockLinearCounter();
-                noise->clockEnvelope();
 
-                pulse1->clockLengthCounter();
-                pulse2->clockLengthCounter();
-                pulse1->clockSweep();
-                pulse2->clockSweep();
-                triangle->clockLengthCounter();
-                noise->clockLengthCounter();
+            
+
+            if (nes->currentCycles % 2 == 1) {
+                // PUT cycle -> 3 (+1)
+                frameCounterResetDelay = 4;
             }
+            else {
+                // GET cycle -> 4 (+1)
+                frameCounterResetDelay = 5;
+            }
+
+            if (data == 0x80) {
+                frameCounterResetDelay--;
+            }
+            
+
             break;
 
         case 0x4008:
@@ -226,6 +257,7 @@ void APU::write(uint16_t address, uint8_t data){
             if (!dpcm->irqEnable) {
                 dpcm->irqPending = false;
             }
+
             break;
 
         case 0x4011:
@@ -248,110 +280,194 @@ void APU::write(uint16_t address, uint8_t data){
 
 uint8_t APU::read(uint16_t address){
     if (address == 0x4015) {
-        uint8_t status = 0;
 
-        if (pulse1->lengthCounter > 0) status |= 0x01;
-        if (pulse2->lengthCounter > 0) status |= 0x02;
-        if (triangle->lengthCounter > 0) status |= 0x04;
-        if (noise->lengthCounter > 0) status |= 0x08;
+        uint8_t data = 0;
+      
+   
+        if (pulse1->lengthCounter > 0)   data |= 0x01;
+        if (pulse2->lengthCounter > 0)   data |= 0x02;
+        if (triangle->lengthCounter > 0) data |= 0x04;
+        if (noise->lengthCounter > 0)    data |= 0x08;
 
-  
-        if (frameIRQ) status |= 0x40;
+        if (dpcm->currentBytesRemaining > 0) data |= 0x10;
 
-        frameIRQ = false;
+   
+        if (frameIRQ) data |= 0x40;
+        if (dpcm->irqPending) data |= 0x80;
 
-     
-        if (dpcm->currentBytesRemaining > 0) status |= 0x10;
+
+        if ((nes->currentCycles) % 2 == 0) {
+            // Read on GET cycle: Takes 2 CPU cycles to reach the next GET cycle
+            framIrqDelay = 2;
+        }
+        else {
+            // Read on PUT cycle: Takes 1 CPU cycle to reach the next GET cycle
+            framIrqDelay = 1;
+        }
+
+        pendingFrameIRQClear = true;
 
        
-        if (dpcm->irqPending) status |= 0x80;
+        if (debugTest7) {
+            printf("[Cycle %llu] CPU READ $4015. Pulse1 Length: %d. Returning Data: %02X\n",
+                nes->currentCycles, pulse1->lengthCounter, data);
+        }
 
-        return status;
+
+        return data;
     }
-    return 0;
+
 
     
     return 0;
 }
 
-void APU::step() {
+void APU::step(bool isGet) {
     evenCycle = !evenCycle;
 
-    if (!dpcm->hasBuffer && dpcm->currentBytesRemaining > 0) {
-      
-         dpcm->sampleBuffer = nes->read(dpcm->currentAddress); 
 
-         if (nes->currentCycles % 2 == 1) {
-             nes->extraCycles += 4;
-         }
-         else {
-             nes->extraCycles += 3;
-         }
-
-        dpcm->hasBuffer = true;
+    frameCounter++;
 
 
-        if (dpcm->currentAddress == 0xFFFF) {
-            dpcm->currentAddress = 0x8000;
-        }
-        else {
-            dpcm->currentAddress++;
-        }
-
-   
-        dpcm->currentBytesRemaining--;
-
-        if (dpcm->currentBytesRemaining == 0) {
-            if (dpcm->loop) {
-          
-                dpcm->currentAddress = dpcm->sampleAddress;
-                dpcm->currentBytesRemaining = dpcm->sampleLength;
+    if (pendingFrameIRQClear) {
+        if (framIrqDelay > 0) {
+            framIrqDelay--;
+            if (debugTest7) {
+                printf("  -> [Cycle %llu | %s] APU::step ticked delay down to %d\n",
+                    nes->currentCycles,
+                    isGet ? "GET" : "PUT",
+                    framIrqDelay);
             }
-            else if (dpcm->irqEnable) {
-              
-                dpcm->irqPending = true;
+
+            if (framIrqDelay == 0) {
+                frameIRQ = false;
+                pendingFrameIRQClear = false;
+                if (debugTest7) {
+                    printf("  ***> [Cycle %llu | %s] FLAG CLEARED! <***\n",
+                        nes->currentCycles,
+                        isGet ? "GET" : "PUT");
+                }
+            }
+        }
+
+    }
+
+
+    if (frameCounterResetDelay > 0) {
+        frameCounterResetDelay--;
+
+        if (frameCounterResetDelay == 0) {
+
+            if (debugTest7) {
+                printf("[Cycle %llu] frameCounterResetDelay hit 0. Sequencer Reset! (Delta: %llu cycles)\n",
+                    nes->currentCycles,
+                    nes->currentCycles - cycleOfLast4017Write);
+            }
+
+
+            // Time to apply the write!
+            uint8_t data = pending4017Value;
+
+            frameCounterMode = (data & 0x80) > 0;
+            irqInhibit = (data & 0x40) > 0;
+
+            if (irqInhibit) {
+                frameIRQ = false;
+                printf("[Cycle %llu] irqInhibit!. frameIRQ = false\n",
+                    nes->currentCycles);
+            }
+
+            // Reset the sequencer
+            frameCounter = 0;
+
+            // Hardware Quirk: If Mode is 1, clock half and quarter frames immediately!
+            if (frameCounterMode) {
+                pulse1->clockEnvelope();
+                pulse2->clockEnvelope();
+                triangle->clockLinearCounter();
+                noise->clockEnvelope();
+
+                pulse1->clockLengthCounter();
+                pulse2->clockLengthCounter();
+                pulse1->clockSweep();
+                pulse2->clockSweep();
+                triangle->clockLengthCounter();
+                noise->clockLengthCounter();
             }
         }
     }
 
+    dpcm->tick(nes);
 
-    if (evenCycle) {
-       
+
+
+    if (!dpcm->hasBuffer && dpcm->currentBytesRemaining > 0 ) {
+        
+         
+
+         dpcm->dmaPending = true;
+
+    }
+
+
+
+
+
+    if (isGet) {
+
         pulse1->tick();
         pulse2->tick();
 
         noise->tick();
+
+
     }
-
-    triangle->tick();
-
-    frameCounter++;
-
     if (frameCounterMode == 0) {
 
         // MODE 0 (4-Step Sequence) 
         // 1/4 Frames: 7457, 14913, 22371, 29829
-        if (frameCounter == 7457 || frameCounter == 14913 || frameCounter == 22371 || frameCounter == 29829) {
+        if (frameCounter == 7456 || frameCounter == 14912 || frameCounter == 22370 || frameCounter == 29828) {
+         
+
+
             pulse1->clockEnvelope(); pulse2->clockEnvelope(); triangle->clockLinearCounter(); noise->clockEnvelope();
         }
         // 1/2 Frames: 14913, 29829
-        if (frameCounter == 14913 || frameCounter == 29829) {
+        if (frameCounter == 14912 || frameCounter == 29828) {
+
+            if (debugTest7 && frameCounter == 14913) {
+                printf("[Cycle %llu] Clocking Length Counters! Total Delta from write: %llu cycles\n",
+                    nes->currentCycles,
+                    nes->currentCycles - cycleOfLast4017Write);
+            }
             pulse1->clockLengthCounter(); pulse2->clockLengthCounter(); triangle->clockLengthCounter(); noise->clockLengthCounter();
             pulse1->clockSweep(); pulse2->clockSweep();
         }
-    
-        if (frameCounter == 29829 && !irqInhibit) {
-            frameIRQ = true;
+        if (frameCounter == 29827 || frameCounter == 29828 || frameCounter == 29829) {
+            if (!irqInhibit) {
+                frameIRQ = true;
+            }
+            else {
+                // Silicon Leak
+                if (frameCounter == 29827 || frameCounter == 29828) {
+                    frameIRQ = true;  
+                }
+                else {
+                    frameIRQ = false; 
+                }
+            }
         }
+
         if (frameCounter == 29830) {
-            frameIRQ = !irqInhibit ? true : false; // One final check
+
             frameCounter = 0;
         }
+
 
     }
     else {
         //  MODE 1 (5-Step Sequence) 
-        // 1/4 Frames: 7457, 14913, 22371, 37281 (Step 4 is skipped!)
+        // 1/4 Frames: 7457, 14913, 22371, 37281
         if (frameCounter == 7457 || frameCounter == 14913 || frameCounter == 22371 || frameCounter == 37281) {
             pulse1->clockEnvelope(); pulse2->clockEnvelope(); triangle->clockLinearCounter(); noise->clockEnvelope();
         }
@@ -360,17 +476,23 @@ void APU::step() {
             pulse1->clockLengthCounter(); pulse2->clockLengthCounter(); triangle->clockLengthCounter(); noise->clockLengthCounter();
             pulse1->clockSweep(); pulse2->clockSweep();
         }
-   
+
         if (frameCounter == 37282) {
             frameCounter = 0;
         }
-    }
 
 
-    if (frameCounter == 29830) {
-        frameCounter = 0;
-    }
-  
+
+        }
+    
+    
+    triangle->tick();
+
+
+   
+
+
+
 
 
     audioCycleCounter++;
@@ -413,3 +535,33 @@ void APU::step() {
 
 
 }
+
+void DPCM::tick(NES* nes){
+    if (timerValue == 0) {
+        timerValue = timer - 1;
+
+   
+        if (bitsRemaining > 0) {
+            if (shiftRegister & 1) {
+                if (currentOutput <= 125) currentOutput += 2;
+            }
+            else {
+                if (currentOutput >= 2) currentOutput -= 2;
+            }
+            shiftRegister >>= 1;
+            bitsRemaining--;
+        }
+
+
+        if (bitsRemaining == 0 && hasBuffer) {
+            shiftRegister = sampleBuffer;
+            hasBuffer = false;
+            bitsRemaining = 8;
+        }
+    }
+    else {
+        timerValue--;
+    }
+    
+}
+

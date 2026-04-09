@@ -132,6 +132,7 @@ uint8_t NES::logRead(uint16_t address) {
 	if (address == 0x4014) {
 		static int dmaCount = 0;
 		printf("DMA Count: %d\n", ++dmaCount);
+		apu->debugTest7 = true;
 	}
 
 	return data;
@@ -152,6 +153,13 @@ uint8_t NES::read(uint16_t address) {
 	}
 	else if (address == 0x4015) {
 		data = (apu->read(address) & 0xDF) | (data & 0x20);
+
+
+		bool isIRQActive = apu->frameIRQ || apu->dpcm->irqPending;
+
+		printf("[Cycle %llu] CPU Read $4015 | Return: %02X | Bus holds: %02X | Bit 5: %d\n",
+			currentCycles, data, cpuDataBus, (cpuDataBus & 0x20) >> 5);
+	//	irqLatched = isIRQActive && !(regP & 0x04);
 
 	}
 	else if (address == 0x4016) { // Player 1
@@ -177,6 +185,13 @@ uint8_t NES::read(uint16_t address) {
 				if (mapper->cpuMapRead(address, mappedAddress)) {
 					data = currentRom->vPRGMemory[mappedAddress];
 				}
+				if (address >= 0xFFFA) {
+					//		printf("VECTOR ACCESS: [%04X] -> Mapped: [%08X] -> Data: [%02X]\n",
+						//address, mappedAddress, data);
+				}
+			}
+			else {
+				if (address >= 0xFFFA) printf("VECTOR ACCESS FAILED TO MAP: [%04X]\n", address);
 			}
 		}
 	}
@@ -185,7 +200,7 @@ uint8_t NES::read(uint16_t address) {
 		if (mapper) {
 			uint32_t mappedAddress = 0;
 			if (mapper->cpuMapRead(address, mappedAddress)) {
-				return saveRam[mappedAddress];
+				data = saveRam[mappedAddress];
 			}
 		}
 	}
@@ -198,6 +213,8 @@ uint8_t NES::read(uint16_t address) {
 	if (address != 0x4015) {
 		cpuDataBus = data;
 	}
+
+
 
 	return data;
 }
@@ -214,14 +231,28 @@ void NES::write(uint16_t address, uint8_t data) {
 
 	}
 	else if (address == 0x4014) { // OAM DMA
-		uint16_t dmaBase = data << 8;
-		for (int i = 0; i < 256; i++) {
-			ppu->oam[ppu->oamAddress] = read(dmaBase + i);
-			ppu->oamAddress++;
+		dmaPage = data;
+		dmaAddress = 0;
+		dmaWaiting = true;
+
+		// 1 cycle  + 512 for the transfer
+		extraCycles += 513;
+
+
+		if (currentCycles % 2 == 1) {
+			extraCycles += 1;
 		}
 
-		currentCycles += 512;
-		extraCycles += 512;
+	
+
+	//	uint16_t dmaBase = data << 8;
+	//	for (int i = 0; i < 256; i++) {
+	//		ppu->oam[ppu->oamAddress] = read(dmaBase + i);
+	//		ppu->oamAddress++;
+	//	}
+
+	//	currentCycles += 512;
+//		extraCycles += 512;
 	}
 	else if (address == 0x4016) { //controlurrr
 		if (data & 0x0001) {
@@ -1431,19 +1462,119 @@ int NES::CISCStep(NESLogger* logger) {
 }
 
 int NES::RISCStep(NESLogger* logger) {
+
+
 	MicroOp currentOp = opQueue[queueIndex];
+	MicroOp nextOp = opQueue[queueIndex + 1];
+	isWritingMemory = (nextOp == OP_WRITE_MEM || nextOp == OP_PUSH_DATA);
+
+	if (regPC == 0x4013) {
+	//	LOGGO = true;
+	}
+	if (LOGGO) {
+	
+		printf("Cycle: %llu [%s] | PC: %04X | I: %02X | P: %02X | Latch: %d | Error: %02X | Q: %d/%d | Op: %d\n",
+			currentCycles,
+			(currentCycles % 2 == 0 ? "EVEN" : "ODD "), // Critical for DPCM/DMA timing
+			regPC,
+			iReg,
+			regP,
+			irqLatched,
+			memory[16], // ErrorCode at $0010
+			queueIndex,
+			queueSize,
+			(int)currentOp);
+		
+	}
+
+	
+
+	// 1. POLLING LOGIC (Must stay at the top to simulate ƒÓ1/ƒÓ2 timing)
+	bool shouldPoll = false;
+	bool isBranch = ((iReg & 0x1F) == 0x10);
+
 	queueIndex++;
+
+	if (isBranch) {
+		if (currentOp == OP_BRANCH_CHECK) {
+			// Peek at condition to see if this is the end of the instruction
+			bool condition = false;
+			switch (iReg) {
+			case 0x90: condition = !(regP & 0x01); break;
+			case 0xB0: condition = (regP & 0x01); break;
+			case 0xF0: condition = (regP & 0x02); break;
+			case 0xD0: condition = !(regP & 0x02); break;
+			case 0x30: condition = (regP & 0x80); break;
+			case 0x10: condition = !(regP & 0x80); break;
+			case 0x50: condition = !(regP & 0x40); break;
+			case 0x70: condition = (regP & 0x40); break;
+			}
+			// Test 9: If branch NOT taken, it ends here. Poll.
+			shouldPoll = !condition;
+		}
+		else if (currentOp == OP_BRANCH_UPDATE_PC) {
+			// Test A: Taken branches MUST NOT poll on Cycle 3.
+			shouldPoll = false;
+		}
+		else if (currentOp == OP_DUMMY_READ) {
+			// Test B & E: Page crosses (Cycle 4) MUST poll.
+			// In Test E, this poll happens BEFORE the read($4015) in the switch.
+			shouldPoll = true;
+		}
+	}
+	else {
+	
+		shouldPoll = (queueIndex == queueSize - 1);
+	}
+
+
+	if (currentOp == OP_FETCH_OPCODE && !isBranch) {
+		shouldPoll = false; 
+	}
+
+	if (shouldPoll) {
+
+		bool isInterruptDisabled = (regP & 0x04) > 0;
+
+		bool isIRQActive = (apu->frameIRQ && !apu->irqInhibit) || apu->dpcm->irqPending;
+
+		if (traceCPU) {
+			printf("[Cycle %llu] POLLING: Opcode %02X | isIRQActive: %d | I_Flag: %d\n",
+				currentCycles, iReg, isIRQActive, isInterruptDisabled);
+		}
+
+		if (ppu->nmiSignal)
+			nmiLatched = true;
+
+
+
+		if (isIRQActive && !(regP & 0x04)){
+
+			irqLatched = true;
+		}
+		
+
+
+
+	}
+
 
 
 	switch (currentOp) {
 		case OP_FETCH_OPCODE: {
+			if (traceCPU && instructionPC != 0) {
+				uint64_t cyclesTaken = currentCycles - instructionStartCycle;
+				printf("[PC: %04X] Opcode: %02X | Cycles Taken: %llu\n",
+					instructionPC, currentOpcodeLog, cyclesTaken);
+			}
 
-			if (ppu->nmiSignal) {
+
+			if (nmiLatched) {
+				nmiLatched = false;
 				ppu->nmiSignal = false; 
 				connectedWire = nullptr;
 				iReg = 0xFF;
 
-				
 				addressLatch = regPC & 0xFF;
 				addressHighLatch = (regPC >> 8) & 0xFF;
 
@@ -1460,11 +1591,15 @@ int NES::RISCStep(NESLogger* logger) {
 				queueIndex = 0;
 				break;
 			}
-			else if (apu->frameIRQ && !(regP & 0x04)) {
+			else if (irqLatched) {
+				if (traceCPU) {
+					printf("[Cycle %llu] FETCH HIJACKED! Jumping to IRQ Sequence.\n", currentCycles);
+				}
+
+				irqLatched = false;
 				iReg = 0xFE;
 				connectedWire = nullptr;
 
-				
 				addressLatch = regPC & 0xFF;
 				addressHighLatch = (regPC >> 8) & 0xFF;
 
@@ -1484,7 +1619,20 @@ int NES::RISCStep(NESLogger* logger) {
 
 			uint8_t opcode = read(regPC);
 			regPC++;
+
 			iDecode(opcode);
+
+			if (traceCPU) {
+				instructionStartCycle = currentCycles;
+				instructionPC = regPC;
+				currentOpcodeLog = opcode;
+			}
+			if (traceCPU) {
+				if (opcode == 0x58 || opcode == 0xEA) {
+					printf("\n[Cycle %llu] FETCHED OPCODE: %02X\n", currentCycles, opcode);
+				}
+			}
+
 			break;
 
 		}
@@ -1560,6 +1708,7 @@ int NES::RISCStep(NESLogger* logger) {
 		case OP_DUMMY_READ: {
 			uint16_t addr = (addressHighLatch << 8) | addressLatch;
 			read(addr);
+
 			break;
 		}
 
@@ -1572,13 +1721,37 @@ int NES::RISCStep(NESLogger* logger) {
 			bool pageCrossed = (sum > 0xFF) && !isZeroPage;
 
 		
-			bool isWriteOp = (opQueue[queueIndex] == OP_WRITE_MEM) || (opQueue[queueIndex] == OP_INTERNAL_INC_DEC);
+			bool isWriteOp = false;
+			for (int i = queueIndex; i < queueSize; i++) {
+				if (opQueue[i] == OP_WRITE_MEM || opQueue[i] == OP_INTERNAL_INC_DEC) {
+					isWriteOp = true;
+					break;
+				}
+			}
 			bool isReadOp = !isWriteOp;
 
 
 			if (isReadOp && !pageCrossed && !isZeroPage) {
 				addressLatch = newLow;
-				extraCycles = -1; 
+
+				queueIndex++;
+
+				
+				uint16_t addr = (addressHighLatch << 8) | addressLatch;
+				dataLatch = read(addr);
+
+				
+				if (mathOP != OP_NONE) {
+					executeALU(mathOP);
+					mathOP = OP_NONE;
+				}
+				else if (connectedWire != nullptr) {
+					*connectedWire = dataLatch;
+					updateFlags(*connectedWire);
+				}
+
+
+			//	extraCycles = -1; 
 				break;
 			}
 
@@ -1608,7 +1781,23 @@ int NES::RISCStep(NESLogger* logger) {
 
 			if (isReadOp && !pageCrossed && !isZeroPage) {
 				addressLatch = newLow;
-				extraCycles = -1;
+
+				queueIndex++;
+
+				uint16_t addr = (addressHighLatch << 8) | addressLatch;
+				dataLatch = read(addr);
+
+
+				if (mathOP != OP_NONE) {
+					executeALU(mathOP);
+					mathOP = OP_NONE;
+				}
+				else if (connectedWire != nullptr) {
+					*connectedWire = dataLatch;
+					updateFlags(*connectedWire);
+				}
+
+			//	extraCycles = -1;
 				break;
 			}
 
@@ -1681,7 +1870,13 @@ int NES::RISCStep(NESLogger* logger) {
 			else if (iReg == 0xFF || iReg == 0xFE) {
 				if (queueIndex == 3) data = (regPC >> 8);
 				else if (queueIndex == 4) data = (regPC & 0xFF);
-				else if (queueIndex == 5) data = (regP & ~0x10) | 0x20; 
+				else if (queueIndex == 5) {
+					
+					data = (regP & ~0x10) | 0x20;
+
+				
+					regP |= 0x04;
+				}
 			}
 
 			write(0x0100 | regSP, data);
@@ -1705,12 +1900,13 @@ int NES::RISCStep(NESLogger* logger) {
 
 		case OP_FETCH_IRQ_LOW: {
 			addressLatch = read(0xFFFE);
+			printf("--- VECTOR FETCH LOW: %02X ---\n", addressLatch);
 			break;
 		}
 
 		case OP_FETCH_IRQ_HIGH: {
 			addressHighLatch = read(0xFFFF);
-		
+			printf("--- VECTOR FETCH LOW: %02X ---\n", addressLatch);
 			regPC = (addressHighLatch << 8) | addressLatch;
 
 			regP |= 0x04;
@@ -1732,7 +1928,9 @@ int NES::RISCStep(NESLogger* logger) {
 				if (queueIndex == 4) addressHighLatch = dataLatch;
 			}
 			else if (iReg == 0x40) {
-				if (queueIndex == 3) regP = (dataLatch & 0xEF) | 0x20;
+				if (queueIndex == 3) {
+					regP = (dataLatch & 0xEF) | 0x20;
+				}
 				if (queueIndex == 4) addressLatch = dataLatch;
 				if (queueIndex == 5) {
 					addressHighLatch = dataLatch;
@@ -1750,6 +1948,7 @@ int NES::RISCStep(NESLogger* logger) {
 		case OP_BRANCH_CHECK: {
 			dataLatch = read(regPC);
 			regPC++;
+		
 
 			bool condition = false;
 			switch (iReg) {
@@ -1839,12 +2038,22 @@ int NES::RISCStep(NESLogger* logger) {
 		case OP_CLEAR_FLAG: {
 			read(regPC); 
 
+			if (traceCPU) {
+				if (iReg == 0x58) { // Only log CLI
+					printf("[Cycle %llu] EXECUTED CLI! I_Flag is now 0.\n", currentCycles);
+				}
+			}
+
+
 			switch (iReg) {
 			case 0x18: regP &= ~0x01; break; // CLC
 			case 0xD8: regP &= ~0x08; break; // CLD
 			case 0x58: regP &= ~0x04; break; // CLI
 			case 0xB8: regP &= ~0x40; break; // CLV
 			}
+
+
+
 			break;
 		}
 
@@ -1856,8 +2065,8 @@ int NES::RISCStep(NESLogger* logger) {
 
 	int returnedCycles = 1 + extraCycles;
 
-	currentCycles += returnedCycles;
-	extraCycles = 0; 
+	//currentCycles += returnedCycles;
+
 
 	return returnedCycles;
 
@@ -1996,6 +2205,18 @@ void NES::executeALU(MicroOp mathOP){
 			break;
 		}
 
+		case OP_ALU_SLO: {
+			// 1. ASL part: Shift dataLatch left, Bit 7 goes to Carry
+			uint8_t oldData = dataLatch;
+			(oldData & 0x80) ? (regP |= 0x01) : (regP &= ~0x01); // Set Carry
+			dataLatch = oldData << 1;
+
+			// 2. ORA part: Accumulator |= shifted value
+			regA |= dataLatch;
+			updateFlags(regA); // Update Zero and Negative based on A
+			// Note: ASL flags for the memory value are usually handled by the write
+			break;
+		}
 	}
 
 }
@@ -3575,6 +3796,16 @@ void NES::iDecode(uint8_t opcode) {
 			queueSize = 4;
 			break;
 
+		case 0x1F: // SLO Absolute, X
+			mathOP = OP_ALU_SLO;
+			opQueue[0] = OP_FETCH_LOW_BYTE;  
+			opQueue[1] = OP_FETCH_HIGH_BYTE; 
+			opQueue[2] = OP_ADD_X_LOW;        
+			opQueue[3] = OP_READ_MEM;         
+			opQueue[4] = OP_WRITE_MEM;        
+			opQueue[5] = OP_WRITE_MEM;       
+			queueSize = 6;
+			break;
 
 		default: 
 

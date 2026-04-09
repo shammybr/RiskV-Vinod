@@ -19,6 +19,7 @@ struct Pulse {
     // Envelope
     bool constantVolume = false;
     bool envelopeStart = false;
+
     uint8_t volume = 0;
     uint8_t envelopeVolume = 0;
     uint8_t envelopeDivider = 0;
@@ -91,6 +92,9 @@ struct Pulse {
     void clockLengthCounter() {
         if (!lengthCounterHalt && lengthCounter > 0) {
             lengthCounter--;
+
+             printf("[Cycle ???] Pulse 1 Length decremented! Now at: %d\n", lengthCounter);
+            
         }
     }
 
@@ -319,39 +323,15 @@ struct DPCM {
     bool loop = false;
     bool irqEnable = false;
     bool irqPending = false;
+    bool dmaPending = false;
+    bool dmaActive = false;
 
     // NTSC Frequency Table
     const uint16_t dpcmPeriodTable[16] = {
         428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54
     };
 
-    void tick() {
-        if (timerValue == 0) {
-            timerValue = timer;
-
-          
-            if (bitsRemaining > 0) {
-                if (shiftRegister & 1) {
-                    if (currentOutput <= 125) currentOutput += 2;
-                }
-                else {
-                    if (currentOutput >= 2) currentOutput -= 2;
-                }
-                shiftRegister >>= 1;
-                bitsRemaining--;
-            }
-
-       
-            if (bitsRemaining == 0 && hasBuffer) {
-                shiftRegister = sampleBuffer;
-                hasBuffer = false;
-                bitsRemaining = 8;
-            }
-        }
-        else {
-            timerValue--;
-        }
-    }
+    void tick(NES* nes); 
 };
 
 
@@ -375,10 +355,11 @@ public:
 
 	double audioCycleCounter = 0;
 	bool     evenCycle = false;  
-
+    bool pendingFrameIRQClear = false;
 	float prevRawSample = 0.0f;
 	float prevFilteredSample = 0.0f;
 	uint16_t frameCounter = 0;
+    uint8_t framIrqDelay = 0;
 
 	Pulse* pulse1 = nullptr;
 	Pulse* pulse2 = nullptr;
@@ -390,6 +371,14 @@ public:
     bool frameCounterMode = false; // 0 = 4-step, 1 = 5-step
     bool irqInhibit = false;
     bool frameIRQ = false;
+    bool dmcIRQ = false;
+    bool dmcIrqEnable = false;
+    bool debugTest7 = false;
+
+    int frameCounterResetDelay = 0;
+    uint8_t pending4017Value = 0;
+
+    uint64_t cycleOfLast4017Write = 0;
 
 	const double audioClockAccumulator = 44100.0 / 1789773.0; 
 	std::vector<float> audioBuffer;
@@ -403,6 +392,6 @@ public:
 	uint8_t read(uint16_t address);
 
 
-	void step();
+	void step(bool isGet);
 
 };

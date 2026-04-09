@@ -37,6 +37,8 @@ NESROM::NESROM(const std::string& fileName) {
     vPRGMemory.resize(prgSize);
     file.read((char*)vPRGMemory.data(), vPRGMemory.size());
 
+    printf("IRQ Vector in Buffer: %02X %02X\n", vPRGMemory[0x7FFE], vPRGMemory[0x7FFF]);
+
     //PPU
     uint32_t chrSize = header.chrChunks * 8192;
 

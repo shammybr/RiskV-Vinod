@@ -218,7 +218,7 @@ uint8_t PPU::cpuRead(uint16_t registerN){
 
 			//bit 7 vai pra 0
 			status &= ~0b1000'0000;
-			addressLatch = false;
+     		addressLatch = false;
 
 			nmiSignal = false;
 

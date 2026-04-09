@@ -54,6 +54,7 @@ enum MicroOp {
 
 	OP_ALU_INC,
 	OP_ALU_DEC,
+	OP_ALU_SLO,
 	OP_ALU_BIT,
 
 	OP_ADD_X_LOW, 
@@ -171,6 +172,10 @@ public:
 public:
 	bool on = false;
 	bool isPageCrossed = false;
+	bool irqLatched = false;
+	bool nmiLatched = false;
+	bool isWritingMemory = false;
+
 	int extraCycles = 0;
 
 	NESROM* currentRom = nullptr;
@@ -178,6 +183,16 @@ public:
 	PPU* ppu = nullptr;
 	APU* apu = nullptr;
 
+	uint8_t dmaPage;
+	uint8_t dmaAddress = 0;
+	uint8_t dmaData = 0;
+	bool dmaWaiting = false;
+	bool LOGGO = false;
+
+	bool traceCPU = false;
+	uint64_t instructionStartCycle = 0;
+	uint16_t instructionPC = 0;
+	uint8_t currentOpcodeLog = 0;
 public:
 	NES();
 
@@ -360,10 +375,11 @@ public:
 	uint8_t* connectedWire;
 	
 	MicroOp mathOP;
-	MicroOp opQueue[8];
+	MicroOp opQueue[20];
 	int queueSize = 0;
 	int queueIndex = 0;
 	bool isZeroPage = false;
+	bool isBranchInstruction = false;
 
 	int RISCStep(NESLogger* logger);
 	void executeALU(MicroOp mathOP);
