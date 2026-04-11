@@ -186,12 +186,16 @@ public:
 	uint8_t dmaPage;
 	uint8_t dmaAddress = 0;
 	uint8_t dmaData = 0;
+	uint8_t oamDmaState = 0;
+	uint8_t dpcmHaltCycles = 0;
+	bool dpcmActive = false;
 	bool dmaWaiting = false;
 	bool LOGGO = false;
 
 	bool traceCPU = false;
 	uint64_t instructionStartCycle = 0;
 	uint16_t instructionPC = 0;
+	uint16_t addressBus = 0;
 	uint8_t currentOpcodeLog = 0;
 public:
 	NES();

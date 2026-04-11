@@ -301,9 +301,14 @@ struct Filter {
 
 struct DPCM {
     bool enabled = false;
+    bool setImplicitAbort = false;
+    bool implicitAbortFlag = false;
+    bool isSilent = false;
     uint8_t currentOutput = 0; //0 - 127
-
-
+    bool pendingEnable = false;
+    int enableDelay = 0;
+    int dmaStartDelay = 0;
+    
     uint16_t timer = 0;
     uint16_t timerValue = 0;
 

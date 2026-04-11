@@ -18,7 +18,7 @@ APU::APU(NES* nes) {
 }
 
 void APU::write(uint16_t address, uint8_t data){
-    switch (address) {
+   switch (address) {
             case 0x4000:
            
             //  DDLC VVVV
@@ -135,7 +135,9 @@ void APU::write(uint16_t address, uint8_t data){
             noise->envelopeStart = true;
             break;
 
-        case 0x4015:
+        case 0x4015: {
+            bool isGet = (nes->currentCycles % 2 == 0);
+
 
             if (debugTest7) {
                 printf("[Cycle %llu | %s] APU::write($4015). Returning bit6=%d. Setting Delay to %d\n",
@@ -168,23 +170,38 @@ void APU::write(uint16_t address, uint8_t data){
 
             noise->enabled = (data & 0x08) > 0;
             if (!noise->enabled) noise->lengthCounter = 0;
-           
-           
-            dpcm->enabled = (data & 0x10) > 0;
-            if (dpcm->enabled) {
-                if (dpcm->currentBytesRemaining == 0) {
-                  
-                    dpcm->currentAddress = dpcm->sampleAddress;
-                    dpcm->currentBytesRemaining = dpcm->sampleLength;
+
+            dpcm->pendingEnable = (data & 0x10) > 0;
+
+            // Standard delay: 4 cycles for GET, 3 for PUT
+            dpcm->enableDelay = isGet ? 4 : 3;
+
+            if (dpcm->pendingEnable && dpcm->currentBytesRemaining == 0) {
+                dpcm->currentAddress = dpcm->sampleAddress;
+                dpcm->currentBytesRemaining = dpcm->sampleLength;
+
+                if (!dpcm->hasBuffer) {
+                    dpcm->dmaStartDelay = 2; // TriCNES DMCDMADelay = 2 APU ticks
                 }
             }
-            else {
-              
-                dpcm->currentBytesRemaining = 0;
+
+
+            if (!dpcm->pendingEnable) {
+                if ((dpcm->timerValue == 2 && isGet) || (dpcm->timerValue == dpcm->timer && !isGet)) {
+                    dpcm->enableDelay = isGet ? 6 : 5;
+                }
+            }
+
+
+            if (dpcm->pendingEnable) {
+                if ((dpcm->timerValue == 10 && isGet) || (dpcm->timerValue == 8 && !isGet)) {
+                    dpcm->setImplicitAbort = true;
+                }
             }
 
             dpcm->irqPending = false;
             break;
+        }
 
         case 0x4017:
             // MI-- ----
@@ -281,27 +298,27 @@ void APU::write(uint16_t address, uint8_t data){
 uint8_t APU::read(uint16_t address){
     if (address == 0x4015) {
 
-        uint8_t data = 0;
       
+        uint8_t data = nes->cpuDataBus & 0x20;
    
         if (pulse1->lengthCounter > 0)   data |= 0x01;
         if (pulse2->lengthCounter > 0)   data |= 0x02;
         if (triangle->lengthCounter > 0) data |= 0x04;
         if (noise->lengthCounter > 0)    data |= 0x08;
 
-        if (dpcm->currentBytesRemaining > 0) data |= 0x10;
 
+        if (dpcm->currentBytesRemaining > 0 && dpcm->pendingEnable) data |= 0x10;
    
         if (frameIRQ) data |= 0x40;
         if (dpcm->irqPending) data |= 0x80;
 
 
         if ((nes->currentCycles) % 2 == 0) {
-            // Read on GET cycle: Takes 2 CPU cycles to reach the next GET cycle
+            // GET cycle: 2 to next GET
             framIrqDelay = 2;
         }
         else {
-            // Read on PUT cycle: Takes 1 CPU cycle to reach the next GET cycle
+            // PUT cycle: 1 to next GET
             framIrqDelay = 1;
         }
 
@@ -365,7 +382,7 @@ void APU::step(bool isGet) {
             }
 
 
-         
+
             uint8_t data = pending4017Value;
 
             frameCounterMode = (data & 0x80) > 0;
@@ -377,10 +394,10 @@ void APU::step(bool isGet) {
                     nes->currentCycles);
             }
 
-            
+
             frameCounter = 0;
 
-          
+
             if (frameCounterMode) {
                 pulse1->clockEnvelope();
                 pulse2->clockEnvelope();
@@ -401,11 +418,11 @@ void APU::step(bool isGet) {
 
 
 
-    if (!dpcm->hasBuffer && dpcm->currentBytesRemaining > 0 ) {
-        
-         
+    if (!dpcm->hasBuffer && dpcm->currentBytesRemaining > 0) {
 
-         dpcm->dmaPending = true;
+
+
+        dpcm->dmaPending = true;
 
     }
 
@@ -427,7 +444,7 @@ void APU::step(bool isGet) {
         // MODE 0 (4-Step Sequence) 
         // 1/4 Frames: 7457, 14913, 22371, 29829
         if (frameCounter == 7456 || frameCounter == 14912 || frameCounter == 22370 || frameCounter == 29828) {
-         
+
 
 
             pulse1->clockEnvelope(); pulse2->clockEnvelope(); triangle->clockLinearCounter(); noise->clockEnvelope();
@@ -450,10 +467,10 @@ void APU::step(bool isGet) {
             else {
                 // Silicon Leak
                 if (frameCounter == 29827 || frameCounter == 29828) {
-                    frameIRQ = true;  
+                    frameIRQ = true;
                 }
                 else {
-                    frameIRQ = false; 
+                    frameIRQ = false;
                 }
             }
         }
@@ -483,13 +500,13 @@ void APU::step(bool isGet) {
 
 
 
-        }
-    
-    
+    }
+
+
     triangle->tick();
 
 
-   
+
 
 
 
@@ -509,7 +526,7 @@ void APU::step(bool isGet) {
             pulseOut = 95.88f / ((8128.0f / (p1 + p2)) + 100.0f);
         }
 
-    
+
         float t = (float)triangle->currentOutput;
         float n = (float)noise->currentOutput;
         float d = (float)dpcm->currentOutput;
@@ -520,11 +537,11 @@ void APU::step(bool isGet) {
         }
 
 
-       
-  
+
+
         float rawSample = pulseOut + tndOut;
 
-       
+
         float output = filterHP90->step(rawSample);
         output = filterHP440->step(output);
         output = filterLP14k->step(output);
@@ -534,14 +551,15 @@ void APU::step(bool isGet) {
     }
 
 
+
 }
 
 void DPCM::tick(NES* nes){
     if (timerValue == 0) {
         timerValue = timer - 1;
 
-   
-        if (bitsRemaining > 0) {
+
+        if (!isSilent) {
             if (shiftRegister & 1) {
                 if (currentOutput <= 125) currentOutput += 2;
             }
@@ -549,14 +567,34 @@ void DPCM::tick(NES* nes){
                 if (currentOutput >= 2) currentOutput -= 2;
             }
             shiftRegister >>= 1;
-            bitsRemaining--;
         }
 
+        bitsRemaining--;
 
-        if (bitsRemaining == 0 && hasBuffer) {
-            shiftRegister = sampleBuffer;
-            hasBuffer = false;
+    
+        if (bitsRemaining == 0) {
             bitsRemaining = 8;
+
+
+            if (currentBytesRemaining > 0 || setImplicitAbort) {
+                if (!dmaPending) {
+                    dmaPending = true;
+                }
+
+                if (setImplicitAbort) {
+                    implicitAbortFlag = true;
+                    setImplicitAbort = false;
+                }
+            }
+
+            if (hasBuffer) {
+                isSilent = false;
+                shiftRegister = sampleBuffer;
+                hasBuffer = false;
+            }
+            else {
+                isSilent = true;
+            }
         }
     }
     else {

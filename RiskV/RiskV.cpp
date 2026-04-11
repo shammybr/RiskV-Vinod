@@ -137,75 +137,100 @@ int main(){
         else {
 
 
+           
             bool isGet = (nes->currentCycles % 2 == 0);
-          
-            if (nes->apu->dpcm->dmaPending) {
-                printf("\n>>> [Cycle %llu] DPCM DMA FIRED! Halting CPU...\n", nes->currentCycles);
 
-            
-                uint8_t sampleByte = nes->read(nes->apu->dpcm->currentAddress);
+         
+            if (nes->apu->dpcm->dmaPending && !nes->dpcmActive) {
+                nes->extraCycles += 4;
+                if (!nes->isWritingMemory) {
+                    
+                    if (nes->apu->dpcm->enabled || nes->apu->dpcm->implicitAbortFlag) {
+                        nes->dpcmActive = true;
+                        nes->dpcmHaltCycles = isGet ? 3 : 2;
+                    }
 
-                printf(">>> [Cycle %llu] DMA Fetched Sample: %02X | cpuDataBus is now: %02X\n\n",
-                    nes->currentCycles, sampleByte, nes->cpuDataBus);
-
-            
-                nes->apu->dpcm->hasBuffer = true;
-                nes->apu->dpcm->shiftRegister = sampleByte;
-
-       
-                if (nes->apu->dpcm->currentAddress == 0xFFFF) {
-                    nes->apu->dpcm->currentAddress = 0x8000;
+                 
+                    nes->apu->dpcm->dmaPending = false;
+                    nes->apu->dpcm->implicitAbortFlag = false;
                 }
                 else {
-                    nes->apu->dpcm->currentAddress++;
-                }
-
-                nes->apu->dpcm->currentBytesRemaining--;
-
-              
-                if (nes->apu->dpcm->currentBytesRemaining == 0) {
-                    if (nes->apu->dpcm->loop) {
-                        nes->apu->dpcm->currentAddress = nes->apu->dpcm->sampleAddress;
-                        nes->apu->dpcm->currentBytesRemaining = nes->apu->dpcm->sampleLength;
-                    }
-                    else if (nes->apu->dpcm->irqEnable) {
-                        nes->apu->dpcm->irqPending = true;
+                
+                    if (nes->apu->dpcm->implicitAbortFlag) {
+                        nes->apu->dpcm->implicitAbortFlag = false;
                     }
                 }
-
-  
-                if (nes->isWritingMemory) {
-                    nes->RISCStep(logger);
-                    nes->extraCycles += 3;
-                }
-                else {
-                    nes->extraCycles += 4;
-                }
-
-               
-                nes->apu->dpcm->dmaPending = false;
             }
 
-            if (nes->extraCycles > 0) {
           
-                if (nes->dmaWaiting) {
-                    if (nes->currentCycles % 2 == 0) { // Read cycle
-                        nes->dmaData = nes->read((nes->dmaPage << 8) | nes->dmaAddress);
+            if (nes->dpcmActive) {
+             
+                if (nes->dpcmHaltCycles == 1) {
+                    
+                    uint8_t sampleByte = nes->read(nes->apu->dpcm->currentAddress);
+                    nes->apu->dpcm->sampleBuffer = sampleByte; 
+                    nes->apu->dpcm->hasBuffer = true;
+
+                    if (nes->apu->dpcm->currentAddress == 0xFFFF) {
+                        nes->apu->dpcm->currentAddress = 0x8000;
                     }
-                    else { // Write cycle
+                    else {
+                        nes->apu->dpcm->currentAddress++;
+                    }
+
+                
+                    if (nes->apu->dpcm->currentBytesRemaining > 0) {
+                        nes->apu->dpcm->currentBytesRemaining--;
+                        if (nes->apu->dpcm->currentBytesRemaining == 0) {
+                            if (nes->apu->dpcm->loop) {
+                                nes->apu->dpcm->currentAddress = nes->apu->dpcm->sampleAddress;
+                                nes->apu->dpcm->currentBytesRemaining = nes->apu->dpcm->sampleLength;
+                            }
+                            else if (nes->apu->dpcm->irqEnable) {
+                                nes->apu->dpcm->irqPending = true;
+                            }
+                        }
+                    }
+                    nes->dpcmActive = false; 
+                }
+                else {
+                  
+                    if (nes->addressBus != 0x2007) {
+                        nes->read(nes->addressBus);
+                    }
+                }
+                nes->dpcmHaltCycles--;
+            }
+
+            else if (nes->dmaWaiting) {
+
+                if (nes->oamDmaState == 0) {
+                    nes->oamDmaState = isGet ? 1 : 2;
+                }
+                else if (nes->oamDmaState == 1) {
+                    nes->oamDmaState = 2;
+                }
+                else if (nes->oamDmaState == 2) {
+                    if (isGet) {
+                        nes->dmaData = nes->read((nes->dmaPage << 8) | nes->dmaAddress);
+                        nes->oamDmaState = 3;
+                    }
+                }
+                else if (nes->oamDmaState == 3) {
+                    if (!isGet) { 
                         nes->ppu->oam[nes->ppu->oamAddress++] = nes->dmaData;
                         nes->dmaAddress++;
-                        if (nes->dmaAddress == 0) nes->dmaWaiting = false; // Done
+                        if (nes->dmaAddress == 0) {
+                            nes->dmaWaiting = false;
+                        }
+                        else {
+                            nes->oamDmaState = 2;
+                        }
                     }
                 }
-
-            
-                nes->extraCycles--;
-                
-
             }
             else {
-                nes->RISCStep(logger);
+                  nes->RISCStep(logger);
             }
 
             for (int i = 0; i < 3; i++) {
@@ -213,31 +238,29 @@ int main(){
                     frames++;
                     sdl->playAudio(nes->apu->audioBuffer);
                     sdl->draw();
-                    if (nes->wannaSave) {
-                        nes->saveGame();
-                    }
+                    if (nes->wannaSave) nes->saveGame();
                 }
                 totalPpuCycles++;
             }
 
-          
             nes->apu->step(isGet);
             nes->currentCycles++;
-       /*     if (nes->apu->debugTest7) {
-                    printf("CPU:%llu | Parity:%s | DMA:%d | PC:%04X | frameIRQ:%d | Delay:%d\n",
-                        nes->currentCycles,
-                        (nes->currentCycles % 2 == 0) ? "GET" : "PUT",
-                        nes->dmaWaiting,
-                        nes->regPC,
-                        nes->apu->frameIRQ,
-                        nes->apu->framIrqDelay);
-            }*/
+            /*     if (nes->apu->debugTest7) {
+                         printf("CPU:%llu | Parity:%s | DMA:%d | PC:%04X | frameIRQ:%d | Delay:%d\n",
+                             nes->currentCycles,
+                             (nes->currentCycles % 2 == 0) ? "GET" : "PUT",
+                             nes->dmaWaiting,
+                             nes->regPC,
+                             nes->apu->frameIRQ,
+                             nes->apu->framIrqDelay);
+                 }*/
 
 
-         
+
 
             totalCpuCycles++;
             totalApuCycles++;
+
            
 
         }

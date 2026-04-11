@@ -141,6 +141,12 @@ uint8_t NES::logRead(uint16_t address) {
 
 uint8_t NES::read(uint16_t address) {
 
+	if (address == 0x4013) {
+		printf("[Cycle %llu] CPU Read $4013 |  Bus holds: %02X \n",
+			currentCycles, cpuDataBus);
+		traceCPU = true;
+		LOGGO = true;
+	}
 	uint8_t data = cpuDataBus;
 
 	if (address <= INTERNALMIRROED) {
@@ -215,7 +221,10 @@ uint8_t NES::read(uint16_t address) {
 	}
 
 
-
+	if (address == 0x4013) {
+		printf("[Cycle %llu] CPU Read $4013 |  data holds: %02X \n",
+			data);
+	}
 	return data;
 }
 
@@ -234,14 +243,14 @@ void NES::write(uint16_t address, uint8_t data) {
 		dmaPage = data;
 		dmaAddress = 0;
 		dmaWaiting = true;
+		oamDmaState = 0; // 0 = Halt, 1 = Align, 2 = Read, 3 = Write
 
 		// 1 cycle  + 512 for the transfer
 		extraCycles += 513;
-
-
-		if (currentCycles % 2 == 1) {
+		if (currentCycles % 2 == 1) { // Write occurred on an odd cycle
 			extraCycles += 1;
 		}
+
 
 	
 
@@ -1471,7 +1480,7 @@ int NES::RISCStep(NESLogger* logger) {
 	if (regPC == 0x4013) {
 	//	LOGGO = true;
 	}
-	if (LOGGO) {
+	if (false) {
 	
 		printf("Cycle: %llu [%s] | PC: %04X | I: %02X | P: %02X | Latch: %d | Error: %02X | Q: %d/%d | Op: %d\n",
 			currentCycles,
@@ -1511,6 +1520,8 @@ int NES::RISCStep(NESLogger* logger) {
 			}
 		
 			shouldPoll = !condition;
+
+			shouldPoll = false;
 		}
 		else if (currentOp == OP_BRANCH_UPDATE_PC) {
 			
@@ -1537,7 +1548,7 @@ int NES::RISCStep(NESLogger* logger) {
 
 		bool isIRQActive = (apu->frameIRQ && !apu->irqInhibit) || apu->dpcm->irqPending;
 
-		if (traceCPU) {
+		if (false) {
 			printf("[Cycle %llu] POLLING: Opcode %02X | isIRQActive: %d | I_Flag: %d\n",
 				currentCycles, iReg, isIRQActive, isInterruptDisabled);
 		}
@@ -1561,7 +1572,7 @@ int NES::RISCStep(NESLogger* logger) {
 
 	switch (currentOp) {
 		case OP_FETCH_OPCODE: {
-			if (traceCPU && instructionPC != 0) {
+			if (false && instructionPC != 0) {
 				uint64_t cyclesTaken = currentCycles - instructionStartCycle;
 				printf("[PC: %04X] Opcode: %02X | Cycles Taken: %llu\n",
 					instructionPC, currentOpcodeLog, cyclesTaken);
@@ -1617,6 +1628,7 @@ int NES::RISCStep(NESLogger* logger) {
 			}
 
 			uint8_t opcode = read(regPC);
+			addressBus = regPC;
 			regPC++;
 
 			iDecode(opcode);
@@ -1639,11 +1651,13 @@ int NES::RISCStep(NESLogger* logger) {
 			break;
 		case OP_FETCH_LOW_BYTE:
 			addressLatch = read(regPC);
+			addressBus = regPC;
 			regPC++;
 
 			break;
 		case OP_FETCH_HIGH_BYTE:
 			addressHighLatch = read(regPC);
+			addressBus = regPC;
 			regPC++;
 
 			//jmp
@@ -1654,6 +1668,7 @@ int NES::RISCStep(NESLogger* logger) {
 			break;
 		case OP_FETCH_IMMEDIATE:
 			dataLatch = read(regPC);
+			addressBus = regPC;
 			regPC++;
 
 			if (mathOP != OP_NONE) {
@@ -1669,6 +1684,7 @@ int NES::RISCStep(NESLogger* logger) {
 
 		case OP_READ_MEM: {
 			uint16_t addr = (addressHighLatch << 8) | addressLatch;
+			addressBus = addr;
 			dataLatch = read(addr);
 
 			if (mathOP != OP_NONE) {
@@ -1692,7 +1708,7 @@ int NES::RISCStep(NESLogger* logger) {
 
 		case OP_WRITE_MEM: {
 			uint16_t addr = (addressHighLatch << 8) | addressLatch;
-
+			addressBus = addr;
 
 			uint8_t outData = (connectedWire != nullptr) ? *connectedWire : dataLatch;
 			write(addr, outData);
@@ -1706,6 +1722,7 @@ int NES::RISCStep(NESLogger* logger) {
 
 		case OP_DUMMY_READ: {
 			uint16_t addr = (addressHighLatch << 8) | addressLatch;
+			addressBus = addr;
 			read(addr);
 
 			break;
@@ -1737,6 +1754,7 @@ int NES::RISCStep(NESLogger* logger) {
 
 				
 				uint16_t addr = (addressHighLatch << 8) | addressLatch;
+				addressBus = addr;
 				dataLatch = read(addr);
 
 				
@@ -1784,6 +1802,7 @@ int NES::RISCStep(NESLogger* logger) {
 				queueIndex++;
 
 				uint16_t addr = (addressHighLatch << 8) | addressLatch;
+				addressBus = addr;
 				dataLatch = read(addr);
 
 
@@ -1802,6 +1821,7 @@ int NES::RISCStep(NESLogger* logger) {
 
 
 			uint16_t dummyAddr = isZeroPage ? addressLatch : ((addressHighLatch << 8) | newLow);
+			addressBus = dummyAddr;
 			read(dummyAddr);
 
 			addressLatch = newLow;
@@ -1816,6 +1836,7 @@ int NES::RISCStep(NESLogger* logger) {
 		case OP_POINTER_READ_LOW: {
 
 			uint16_t fullPtrAddr = (addressHighLatch << 8) | addressLatch;
+			addressBus = fullPtrAddr;
 			dataLatch = read(fullPtrAddr);
 
 		//	dataLatch = read(addressLatch & 0xFF);
@@ -1825,6 +1846,7 @@ int NES::RISCStep(NESLogger* logger) {
 		case OP_POINTER_READ_HIGH: {
 
 			uint16_t fullPtrAddr = (addressHighLatch << 8) | addressLatch;
+
 			uint16_t nextPtrAddr;
 
 			if (iReg == 0x6C) {
@@ -1836,7 +1858,7 @@ int NES::RISCStep(NESLogger* logger) {
 				nextPtrAddr = (fullPtrAddr + 1) & 0xFF;
 			}
 
-	
+			addressBus = nextPtrAddr;
 			addressHighLatch = read(nextPtrAddr);
 			addressLatch = dataLatch;
 
@@ -1878,6 +1900,7 @@ int NES::RISCStep(NESLogger* logger) {
 				}
 			}
 
+			addressBus = 0x0100 | regSP;
 			write(0x0100 | regSP, data);
 			regSP--;
 			break;
@@ -1885,11 +1908,13 @@ int NES::RISCStep(NESLogger* logger) {
 
 		case OP_FETCH_NMI_LOW: {
 			addressLatch = read(0xFFFA);
+			addressBus = 0xFFFA;
 			break;
 		}
 
 		case OP_FETCH_NMI_HIGH: {
 			addressHighLatch = read(0xFFFB);
+			addressBus = 0xFFFB;
 		
 			regPC = (addressHighLatch << 8) | addressLatch;
 
@@ -1899,12 +1924,14 @@ int NES::RISCStep(NESLogger* logger) {
 
 		case OP_FETCH_IRQ_LOW: {
 			addressLatch = read(0xFFFE);
+			addressBus = 0xFFFE;
 			printf("--- VECTOR FETCH LOW: %02X ---\n", addressLatch);
 			break;
 		}
 
 		case OP_FETCH_IRQ_HIGH: {
 			addressHighLatch = read(0xFFFF);
+			addressBus = 0xFFFF;
 			printf("--- VECTOR FETCH LOW: %02X ---\n", addressLatch);
 			regPC = (addressHighLatch << 8) | addressLatch;
 
@@ -1915,7 +1942,9 @@ int NES::RISCStep(NESLogger* logger) {
 
 		case OP_PULL_DATA: {
 			regSP++;
+			addressBus = 0x0100 | regSP;
 			dataLatch = read(0x0100 | regSP);
+			
 
 			if (connectedWire != nullptr) {
 				*connectedWire = dataLatch;
@@ -1940,11 +1969,13 @@ int NES::RISCStep(NESLogger* logger) {
 		}
 
 		case OP_DUMMY_STACK_READ: {
+			addressBus = 0x0100 | regSP;
 			read(0x0100 | regSP);
 			break;
 		}
 
 		case OP_BRANCH_CHECK: {
+			addressBus = regPC;
 			dataLatch = read(regPC);
 			regPC++;
 		
@@ -1967,19 +1998,17 @@ int NES::RISCStep(NESLogger* logger) {
 					opQueue[i] = opQueue[i - 1];
 				}
 				opQueue[queueIndex] = OP_BRANCH_UPDATE_PC;
+	
 				queueSize++;
 			}
-	
 			break;
 		}
 
 		case OP_BRANCH_UPDATE_PC: {
-			read(regPC); 
 			uint16_t oldPC = regPC;
+			regPC += (int8_t)dataLatch;  // Apply the branch offset
 
-			regPC += (int8_t)dataLatch; 
-
-		
+			// Check for page crossing
 			if ((oldPC & 0xFF00) != (regPC & 0xFF00)) {
 				for (int i = queueSize; i > queueIndex; i--) {
 					opQueue[i] = opQueue[i - 1];
@@ -1999,6 +2028,7 @@ int NES::RISCStep(NESLogger* logger) {
 		}
 
 		case OP_TRANSFER_REG: {
+			addressBus = regPC;
 			read(regPC); 
 
 			switch (iReg) {
@@ -2013,6 +2043,7 @@ int NES::RISCStep(NESLogger* logger) {
 		}
 
 		case OP_INTERNAL_INC_DEC: {
+			addressBus = regPC;
 			read(regPC);
 
 		
@@ -2024,6 +2055,7 @@ int NES::RISCStep(NESLogger* logger) {
 		}
 
 		case OP_SET_FLAG: {
+			addressBus = regPC;
 			read(regPC);
 
 			switch (iReg) {
@@ -2035,6 +2067,7 @@ int NES::RISCStep(NESLogger* logger) {
 		}
 
 		case OP_CLEAR_FLAG: {
+			addressBus = regPC;
 			read(regPC); 
 
 			if (traceCPU) {
