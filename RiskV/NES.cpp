@@ -132,7 +132,7 @@ uint8_t NES::logRead(uint16_t address) {
 	if (address == 0x4014) {
 		static int dmaCount = 0;
 		printf("DMA Count: %d\n", ++dmaCount);
-		apu->debugTest7 = true;
+	//	apu->debugTest7 = true;
 	}
 
 	return data;
@@ -142,10 +142,18 @@ uint8_t NES::logRead(uint16_t address) {
 uint8_t NES::read(uint16_t address) {
 
 	if (address == 0x4013) {
-		printf("[Cycle %llu] CPU Read $4013 |  Bus holds: %02X \n",
-			currentCycles, cpuDataBus);
-		traceCPU = true;
-		LOGGO = true;
+	//	printf("[Cycle %llu] CPU Read $4013 |  Bus holds: %02X \n",
+	//		currentCycles, cpuDataBus);
+	//	traceCPU = true;
+	//	LOGGO = true;
+	}
+	if (traceCPU) {
+		if (address == 0x4000) {
+			printf("[Cycle %llu] CPU Read $4000 |  Bus holds: %02X \n",
+				currentCycles, cpuDataBus);
+		}
+		//	traceCPU = true;
+		//	LOGGO = true;
 	}
 	uint8_t data = cpuDataBus;
 
@@ -163,8 +171,8 @@ uint8_t NES::read(uint16_t address) {
 
 		bool isIRQActive = apu->frameIRQ || apu->dpcm->irqPending;
 
-		printf("[Cycle %llu] CPU Read $4015 | Return: %02X | Bus holds: %02X | Bit 5: %d\n",
-			currentCycles, data, cpuDataBus, (cpuDataBus & 0x20) >> 5);
+	//	printf("[Cycle %llu] CPU Read $4015 | Return: %02X | Bus holds: %02X | Bit 5: %d\n",
+	//		currentCycles, data, cpuDataBus, (cpuDataBus & 0x20) >> 5);
 	//	irqLatched = isIRQActive && !(regP & 0x04);
 
 	}
@@ -1480,7 +1488,7 @@ int NES::RISCStep(NESLogger* logger) {
 	if (regPC == 0x4013) {
 	//	LOGGO = true;
 	}
-	if (false) {
+	if (traceCPU) {
 	
 		printf("Cycle: %llu [%s] | PC: %04X | I: %02X | P: %02X | Latch: %d | Error: %02X | Q: %d/%d | Op: %d\n",
 			currentCycles,
@@ -1548,7 +1556,7 @@ int NES::RISCStep(NESLogger* logger) {
 
 		bool isIRQActive = (apu->frameIRQ && !apu->irqInhibit) || apu->dpcm->irqPending;
 
-		if (false) {
+		if (traceCPU) {
 			printf("[Cycle %llu] POLLING: Opcode %02X | isIRQActive: %d | I_Flag: %d\n",
 				currentCycles, iReg, isIRQActive, isInterruptDisabled);
 		}

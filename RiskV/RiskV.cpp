@@ -142,12 +142,20 @@ int main(){
 
          
             if (nes->apu->dpcm->dmaPending && !nes->dpcmActive) {
-                nes->extraCycles += 4;
-                if (!nes->isWritingMemory) {
+                if (nes->traceCPU) {
+                   
+                    printf("[Cycle %llu] dmaPending! |  isWritingMemory: %s \n",
+                            nes->currentCycles, nes->isWritingMemory ? "true" : "false");
                     
+                    //	traceCPU = true;
+                    //	LOGGO = true;
+                }
+                
+                if (!nes->isWritingMemory) {
+
                     if (nes->apu->dpcm->enabled || nes->apu->dpcm->implicitAbortFlag) {
                         nes->dpcmActive = true;
-                        nes->dpcmHaltCycles = isGet ? 3 : 2;
+                        nes->dpcmHaltCycles = isGet ? 4 : 3;
                     }
 
                  
@@ -155,7 +163,6 @@ int main(){
                     nes->apu->dpcm->implicitAbortFlag = false;
                 }
                 else {
-                
                     if (nes->apu->dpcm->implicitAbortFlag) {
                         nes->apu->dpcm->implicitAbortFlag = false;
                     }
@@ -166,7 +173,14 @@ int main(){
             if (nes->dpcmActive) {
              
                 if (nes->dpcmHaltCycles == 1) {
-                    
+                    if (nes->traceCPU) {
+
+                        printf("[Cycle %llu] Last Halt Cycle! \n",
+                            nes->currentCycles);
+
+                        //	traceCPU = true;
+                        //	LOGGO = true;
+                    }
                     uint8_t sampleByte = nes->read(nes->apu->dpcm->currentAddress);
                     nes->apu->dpcm->sampleBuffer = sampleByte; 
                     nes->apu->dpcm->hasBuffer = true;
@@ -230,7 +244,9 @@ int main(){
                 }
             }
             else {
-                  nes->RISCStep(logger);
+
+                nes->RISCStep(logger);
+                
             }
 
             for (int i = 0; i < 3; i++) {
@@ -245,6 +261,17 @@ int main(){
 
             nes->apu->step(isGet);
             nes->currentCycles++;
+
+
+            auto now = std::chrono::steady_clock::now();
+
+            if (now >= lastFpsTime + std::chrono::seconds(1)) {
+                std::cout << std::dec << "FPS: " << frames << std::endl;
+                frames = 0;
+                lastFpsTime += std::chrono::seconds(1);
+            }
+
+
             /*     if (nes->apu->debugTest7) {
                          printf("CPU:%llu | Parity:%s | DMA:%d | PC:%04X | frameIRQ:%d | Delay:%d\n",
                              nes->currentCycles,

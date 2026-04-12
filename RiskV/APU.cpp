@@ -418,15 +418,6 @@ void APU::step(bool isGet) {
 
 
 
-    if (!dpcm->hasBuffer && dpcm->currentBytesRemaining > 0) {
-
-
-
-        dpcm->dmaPending = true;
-
-    }
-
-
 
 
 
@@ -555,6 +546,26 @@ void APU::step(bool isGet) {
 }
 
 void DPCM::tick(NES* nes){
+    if (enableDelay > 0) {
+        enableDelay--;
+        if (enableDelay == 0) {
+            enabled = pendingEnable;
+            if (!enabled) {
+                currentBytesRemaining = 0;
+            }
+        }
+    }
+
+
+    bool transitioningToGetCycle = (nes->currentCycles % 2 == 0);
+    if (transitioningToGetCycle && dmaStartDelay > 0) {
+        dmaStartDelay--;
+        if (dmaStartDelay == 0 && !dmaPending) {
+            dmaPending = true;
+        }
+    }
+
+
     if (timerValue == 0) {
         timerValue = timer - 1;
 
