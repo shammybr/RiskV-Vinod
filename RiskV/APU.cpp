@@ -181,7 +181,7 @@ void APU::write(uint16_t address, uint8_t data){
                 dpcm->currentBytesRemaining = dpcm->sampleLength;
 
                 if (!dpcm->hasBuffer) {
-                    dpcm->dmaStartDelay = 2; // TriCNES DMCDMADelay = 2 APU ticks
+                    dpcm->dmaStartDelay = isGet ? 4 : 3; // TriCNES DMCDMADelay = 2 APU ticks
                 }
             }
 
@@ -557,8 +557,8 @@ void DPCM::tick(NES* nes){
     }
 
 
-    bool transitioningToGetCycle = (nes->currentCycles % 2 == 0);
-    if (transitioningToGetCycle && dmaStartDelay > 0) {
+   
+    if (dmaStartDelay > 0) {
         dmaStartDelay--;
         if (dmaStartDelay == 0 && !dmaPending) {
             dmaPending = true;

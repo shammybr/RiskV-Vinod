@@ -139,7 +139,6 @@ int main(){
 
            
             bool isGet = (nes->currentCycles % 2 == 0);
-
          
             if (nes->apu->dpcm->dmaPending && !nes->dpcmActive) {
                 if (nes->traceCPU) {
@@ -255,6 +254,8 @@ int main(){
                     sdl->playAudio(nes->apu->audioBuffer);
                     sdl->draw();
                     if (nes->wannaSave) nes->saveGame();
+
+               
                 }
                 totalPpuCycles++;
             }
@@ -270,6 +271,7 @@ int main(){
                 frames = 0;
                 lastFpsTime += std::chrono::seconds(1);
             }
+
 
 
             /*     if (nes->apu->debugTest7) {

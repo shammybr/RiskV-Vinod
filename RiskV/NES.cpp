@@ -152,8 +152,16 @@ uint8_t NES::read(uint16_t address) {
 			printf("[Cycle %llu] CPU Read $4000 |  Bus holds: %02X \n",
 				currentCycles, cpuDataBus);
 		}
+		
 		//	traceCPU = true;
 		//	LOGGO = true;
+	}
+	if (address == 0x2002) {
+
+//		printf("[Cycle %llu] CPU READ $2002. dataBus: %d\n",
+	//		currentCycles, cpuDataBus);
+
+
 	}
 	uint8_t data = cpuDataBus;
 
@@ -1488,7 +1496,7 @@ int NES::RISCStep(NESLogger* logger) {
 	if (regPC == 0x4013) {
 	//	LOGGO = true;
 	}
-	if (traceCPU) {
+	if (false) {
 	
 		printf("Cycle: %llu [%s] | PC: %04X | I: %02X | P: %02X | Latch: %d | Error: %02X | Q: %d/%d | Op: %d\n",
 			currentCycles,
@@ -1556,7 +1564,7 @@ int NES::RISCStep(NESLogger* logger) {
 
 		bool isIRQActive = (apu->frameIRQ && !apu->irqInhibit) || apu->dpcm->irqPending;
 
-		if (traceCPU) {
+		if (false) {
 			printf("[Cycle %llu] POLLING: Opcode %02X | isIRQActive: %d | I_Flag: %d\n",
 				currentCycles, iReg, isIRQActive, isInterruptDisabled);
 		}
@@ -1665,13 +1673,17 @@ int NES::RISCStep(NESLogger* logger) {
 			break;
 		case OP_FETCH_HIGH_BYTE:
 			addressHighLatch = read(regPC);
-			addressBus = regPC;
 			regPC++;
 
 			//jmp
 			if (iReg == 0x4C || iReg == 0x20) {
 				regPC = (addressHighLatch << 8) | addressLatch;
+				addressBus = regPC;
 			}
+			else {
+				addressBus = (addressHighLatch << 8) | addressLatch;
+			}
+		
 
 			break;
 		case OP_FETCH_IMMEDIATE:
