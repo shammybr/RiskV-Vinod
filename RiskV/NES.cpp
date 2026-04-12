@@ -1665,30 +1665,36 @@ int NES::RISCStep(NESLogger* logger) {
 		}
 
 			break;
-		case OP_FETCH_LOW_BYTE:
+		case OP_FETCH_LOW_BYTE: {
 			addressLatch = read(regPC);
-			addressBus = regPC;
 			regPC++;
 
+			MicroOp nextOp = opQueue[queueIndex + 1];
+			if (nextOp == OP_FETCH_HIGH_BYTE || nextOp == OP_ADD_X_LOW || nextOp == OP_ADD_Y_LOW) {
+				addressBus = regPC;
+			}
+			else {
+				addressBus = addressLatch; // Next cycle is zero page execution
+			}
 			break;
-		case OP_FETCH_HIGH_BYTE:
+		}
+
+		case OP_FETCH_HIGH_BYTE: {
 			addressHighLatch = read(regPC);
 			regPC++;
 
-			//jmp
-			if (iReg == 0x4C || iReg == 0x20) {
+			if (iReg == 0x4C || iReg == 0x20) { // JMP / JSR
 				regPC = (addressHighLatch << 8) | addressLatch;
 				addressBus = regPC;
 			}
 			else {
 				addressBus = (addressHighLatch << 8) | addressLatch;
 			}
-		
-
 			break;
-		case OP_FETCH_IMMEDIATE:
+		}
+
+		case OP_FETCH_IMMEDIATE: {
 			dataLatch = read(regPC);
-			addressBus = regPC;
 			regPC++;
 
 			if (mathOP != OP_NONE) {
@@ -1700,16 +1706,17 @@ int NES::RISCStep(NESLogger* logger) {
 				updateFlags(*connectedWire);
 			}
 
+			addressBus = regPC; // Instruction complete
 			break;
+		}
 
 		case OP_READ_MEM: {
 			uint16_t addr = (addressHighLatch << 8) | addressLatch;
-			addressBus = addr;
 			dataLatch = read(addr);
 
+			bool isRMW = false;
 			if (mathOP != OP_NONE) {
-			
-				bool isRMW = (mathOP == OP_ALU_ASL || mathOP == OP_ALU_LSR ||
+				isRMW = (mathOP == OP_ALU_ASL || mathOP == OP_ALU_LSR ||
 					mathOP == OP_ALU_ROL || mathOP == OP_ALU_ROR ||
 					mathOP == OP_ALU_INC || mathOP == OP_ALU_DEC);
 
@@ -1719,44 +1726,43 @@ int NES::RISCStep(NESLogger* logger) {
 				}
 			}
 			else if (connectedWire != nullptr) {
-			
 				*connectedWire = dataLatch;
 				updateFlags(*connectedWire);
 			}
+
+			// RMW instructions execute a dummy write to the same address next
+			addressBus = isRMW ? addr : regPC;
 			break;
 		}
 
 		case OP_WRITE_MEM: {
 			uint16_t addr = (addressHighLatch << 8) | addressLatch;
-			addressBus = addr;
-
 			uint8_t outData = (connectedWire != nullptr) ? *connectedWire : dataLatch;
+
 			write(addr, outData);
 
 			if (mathOP != OP_NONE) {
-				executeALU(mathOP); 
-				mathOP = OP_NONE;   
+				executeALU(mathOP);
+				mathOP = OP_NONE;
 			}
+
+			addressBus = regPC; // Instruction complete
 			break;
 		}
 
 		case OP_DUMMY_READ: {
 			uint16_t addr = (addressHighLatch << 8) | addressLatch;
-			addressBus = addr;
 			read(addr);
 
+			addressBus = regPC;
 			break;
 		}
-
-		
 
 		case OP_ADD_X_LOW: {
 			uint16_t sum = addressLatch + regX;
 			uint8_t newLow = sum & 0xFF;
-
 			bool pageCrossed = (sum > 0xFF) && !isZeroPage;
 
-		
 			bool isWriteOp = false;
 			for (int i = queueIndex; i < queueSize; i++) {
 				if (opQueue[i] == OP_WRITE_MEM || opQueue[i] == OP_INTERNAL_INC_DEC) {
@@ -1766,18 +1772,13 @@ int NES::RISCStep(NESLogger* logger) {
 			}
 			bool isReadOp = !isWriteOp;
 
-
 			if (isReadOp && !pageCrossed && !isZeroPage) {
 				addressLatch = newLow;
-
 				queueIndex++;
 
-				
 				uint16_t addr = (addressHighLatch << 8) | addressLatch;
-				addressBus = addr;
 				dataLatch = read(addr);
 
-				
 				if (mathOP != OP_NONE) {
 					executeALU(mathOP);
 					mathOP = OP_NONE;
@@ -1787,44 +1788,37 @@ int NES::RISCStep(NESLogger* logger) {
 					updateFlags(*connectedWire);
 				}
 
-
-			//	extraCycles = -1; 
+				addressBus = regPC; // Instruction complete
 				break;
 			}
 
-
 			uint16_t dummyAddr = isZeroPage ? addressLatch : ((addressHighLatch << 8) | newLow);
-			read(dummyAddr); 
-
+			read(dummyAddr);
 			addressLatch = newLow;
-
 
 			if (pageCrossed) {
 				addressHighLatch = (addressHighLatch + 1) & 0xFF;
 			}
+
+			// Setup target address for the upcoming read/write micro-op
+			addressBus = isZeroPage ? addressLatch : ((addressHighLatch << 8) | addressLatch);
 			break;
 		}
 
 		case OP_ADD_Y_LOW: {
 			uint16_t sum = addressLatch + regY;
 			uint8_t newLow = sum & 0xFF;
-
 			bool pageCrossed = (sum > 0xFF) && !isZeroPage;
-
 
 			bool isWriteOp = (opQueue[queueIndex] == OP_WRITE_MEM) || (opQueue[queueIndex] == OP_INTERNAL_INC_DEC);
 			bool isReadOp = !isWriteOp;
 
-
 			if (isReadOp && !pageCrossed && !isZeroPage) {
 				addressLatch = newLow;
-
 				queueIndex++;
 
 				uint16_t addr = (addressHighLatch << 8) | addressLatch;
-				addressBus = addr;
 				dataLatch = read(addr);
-
 
 				if (mathOP != OP_NONE) {
 					executeALU(mathOP);
@@ -1835,200 +1829,176 @@ int NES::RISCStep(NESLogger* logger) {
 					updateFlags(*connectedWire);
 				}
 
-			//	extraCycles = -1;
+				addressBus = regPC; // Instruction complete
 				break;
 			}
 
-
 			uint16_t dummyAddr = isZeroPage ? addressLatch : ((addressHighLatch << 8) | newLow);
-			addressBus = dummyAddr;
 			read(dummyAddr);
-
 			addressLatch = newLow;
-
 
 			if (pageCrossed) {
 				addressHighLatch = (addressHighLatch + 1) & 0xFF;
 			}
+
+			addressBus = (addressHighLatch << 8) | addressLatch;
 			break;
 		}
 
 		case OP_POINTER_READ_LOW: {
-
 			uint16_t fullPtrAddr = (addressHighLatch << 8) | addressLatch;
-			addressBus = fullPtrAddr;
 			dataLatch = read(fullPtrAddr);
 
-		//	dataLatch = read(addressLatch & 0xFF);
+			// Next cycle fetches high byte from address + 1 (with page wrap for JMP indirect)
+			if (iReg == 0x6C) {
+				addressBus = (fullPtrAddr & 0xFF00) | ((fullPtrAddr + 1) & 0xFF);
+			}
+			else {
+				addressBus = (fullPtrAddr + 1) & 0xFF;
+			}
 			break;
 		}
 
 		case OP_POINTER_READ_HIGH: {
-
-			uint16_t fullPtrAddr = (addressHighLatch << 8) | addressLatch;
-
-			uint16_t nextPtrAddr;
-
-			if (iReg == 0x6C) {
-				
-				nextPtrAddr = (fullPtrAddr & 0xFF00) | ((fullPtrAddr + 1) & 0xFF);
-			}
-			else {
-				
-				nextPtrAddr = (fullPtrAddr + 1) & 0xFF;
-			}
-
-			addressBus = nextPtrAddr;
+			uint16_t nextPtrAddr = addressBus; // Already set by LOW step
 			addressHighLatch = read(nextPtrAddr);
 			addressLatch = dataLatch;
 
-			//jmp
 			if (iReg == 0x6C) {
 				regPC = (addressHighLatch << 8) | addressLatch;
+				addressBus = regPC;
 			}
-		
+			else {
+				addressBus = (addressHighLatch << 8) | addressLatch;
+			}
 			break;
 		}
 
 		case OP_PUSH_DATA: {
 			uint8_t data = 0;
-
 			if (connectedWire != nullptr) {
 				data = *connectedWire;
-
-				if (iReg == 0x08) {
-					data |= 0x30;
-				}
+				if (iReg == 0x08) data |= 0x30;
 			}
-			else if (iReg == 0x20) { 
+			else if (iReg == 0x20) {
 				data = (queueIndex == 3) ? (regPC >> 8) : (regPC & 0xFF);
 			}
 			else if (iReg == 0x00) {
 				if (queueIndex == 2) data = (regPC >> 8);
 				else if (queueIndex == 3) data = (regPC & 0xFF);
-				else if (queueIndex == 4) data = regP | 0x30; 
+				else if (queueIndex == 4) data = regP | 0x30;
 			}
 			else if (iReg == 0xFF || iReg == 0xFE) {
 				if (queueIndex == 3) data = (regPC >> 8);
 				else if (queueIndex == 4) data = (regPC & 0xFF);
 				else if (queueIndex == 5) {
-					
 					data = (regP & ~0x10) | 0x20;
-
-				
 					regP |= 0x04;
 				}
 			}
 
-			addressBus = 0x0100 | regSP;
 			write(0x0100 | regSP, data);
 			regSP--;
+
+			MicroOp nextOp = opQueue[queueIndex + 1];
+			addressBus = (nextOp == OP_PUSH_DATA) ? (0x0100 | regSP) : regPC;
 			break;
 		}
 
 		case OP_FETCH_NMI_LOW: {
 			addressLatch = read(0xFFFA);
-			addressBus = 0xFFFA;
+			addressBus = 0xFFFB;
 			break;
 		}
 
 		case OP_FETCH_NMI_HIGH: {
 			addressHighLatch = read(0xFFFB);
-			addressBus = 0xFFFB;
-		
 			regPC = (addressHighLatch << 8) | addressLatch;
-
 			regP |= 0x04;
+			addressBus = regPC;
 			break;
 		}
 
 		case OP_FETCH_IRQ_LOW: {
 			addressLatch = read(0xFFFE);
-			addressBus = 0xFFFE;
-			printf("--- VECTOR FETCH LOW: %02X ---\n", addressLatch);
+			addressBus = 0xFFFF;
 			break;
 		}
 
 		case OP_FETCH_IRQ_HIGH: {
 			addressHighLatch = read(0xFFFF);
-			addressBus = 0xFFFF;
-			printf("--- VECTOR FETCH LOW: %02X ---\n", addressLatch);
 			regPC = (addressHighLatch << 8) | addressLatch;
-
 			regP |= 0x04;
+			addressBus = regPC;
 			break;
 		}
 
-
 		case OP_PULL_DATA: {
 			regSP++;
-			addressBus = 0x0100 | regSP;
 			dataLatch = read(0x0100 | regSP);
-			
 
 			if (connectedWire != nullptr) {
 				*connectedWire = dataLatch;
 				if (connectedWire == &regA) updateFlags(*connectedWire);
 			}
 			else if (iReg == 0x60) {
-			
 				if (queueIndex == 3) addressLatch = dataLatch;
 				if (queueIndex == 4) addressHighLatch = dataLatch;
 			}
 			else if (iReg == 0x40) {
-				if (queueIndex == 3) {
-					regP = (dataLatch & 0xEF) | 0x20;
-				}
+				if (queueIndex == 3) regP = (dataLatch & 0xEF) | 0x20;
 				if (queueIndex == 4) addressLatch = dataLatch;
 				if (queueIndex == 5) {
 					addressHighLatch = dataLatch;
-					regPC = (addressHighLatch << 8) | addressLatch; // jump
+					regPC = (addressHighLatch << 8) | addressLatch;
 				}
 			}
+
+			MicroOp nextOp = opQueue[queueIndex + 1];
+			addressBus = (nextOp == OP_PULL_DATA) ? (0x0100 | (regSP + 1)) : regPC;
 			break;
 		}
 
 		case OP_DUMMY_STACK_READ: {
-			addressBus = 0x0100 | regSP;
 			read(0x0100 | regSP);
+
+			MicroOp nextOp = opQueue[queueIndex + 1];
+			addressBus = (nextOp == OP_PULL_DATA) ? (0x0100 | (regSP + 1)) : regPC;
 			break;
 		}
 
 		case OP_BRANCH_CHECK: {
-			addressBus = regPC;
 			dataLatch = read(regPC);
 			regPC++;
-		
 
 			bool condition = false;
 			switch (iReg) {
-			case 0x90: condition = ((regP & 0x01) == 0); break; // BCC
-			case 0xB0: condition = ((regP & 0x01) != 0); break; // BCS
-			case 0xF0: condition = ((regP & 0x02) != 0); break; // BEQ
-			case 0xD0: condition = ((regP & 0x02) == 0); break; // BNE
-			case 0x30: condition = ((regP & 0x80) != 0); break; // BMI
-			case 0x10: condition = ((regP & 0x80) == 0); break; // BPL
-			case 0x50: condition = ((regP & 0x40) == 0); break; // BVC
-			case 0x70: condition = ((regP & 0x40) != 0); break; // BVS
+			case 0x90: condition = ((regP & 0x01) == 0); break;
+			case 0xB0: condition = ((regP & 0x01) != 0); break;
+			case 0xF0: condition = ((regP & 0x02) != 0); break;
+			case 0xD0: condition = ((regP & 0x02) == 0); break;
+			case 0x30: condition = ((regP & 0x80) != 0); break;
+			case 0x10: condition = ((regP & 0x80) == 0); break;
+			case 0x50: condition = ((regP & 0x40) == 0); break;
+			case 0x70: condition = ((regP & 0x40) != 0); break;
 			}
 
-		
 			if (condition) {
 				for (int i = queueSize; i > queueIndex; i--) {
 					opQueue[i] = opQueue[i - 1];
 				}
 				opQueue[queueIndex] = OP_BRANCH_UPDATE_PC;
-	
 				queueSize++;
 			}
+
+			addressBus = regPC;
 			break;
 		}
 
 		case OP_BRANCH_UPDATE_PC: {
 			uint16_t oldPC = regPC;
-			regPC += (int8_t)dataLatch;  // Apply the branch offset
+			regPC += (int8_t)dataLatch;
 
-			// Check for page crossing
 			if ((oldPC & 0xFF00) != (regPC & 0xFF00)) {
 				for (int i = queueSize; i > queueIndex; i--) {
 					opQueue[i] = opQueue[i - 1];
@@ -2036,76 +2006,67 @@ int NES::RISCStep(NESLogger* logger) {
 				opQueue[queueIndex] = OP_DUMMY_READ;
 				queueSize++;
 			}
+
+			addressBus = regPC;
 			break;
 		}
 
 		case OP_JUMP_CALC: {
 			regPC = (addressHighLatch << 8) | addressLatch;
-
-		
 			if (iReg == 0x60) regPC++;
+
+			addressBus = regPC;
 			break;
 		}
 
 		case OP_TRANSFER_REG: {
-			addressBus = regPC;
-			read(regPC); 
-
+			read(regPC);
 			switch (iReg) {
-			case 0xAA: regX = regA; updateFlags(regX); break; // TAX
-			case 0xA8: regY = regA; updateFlags(regY); break; // TAY
-			case 0x8A: regA = regX; updateFlags(regA); break; // TXA
-			case 0x98: regA = regY; updateFlags(regA); break; // TYA
-			case 0xBA: regX = regSP; updateFlags(regX); break; // TSX
-			case 0x9A: regSP = regX; break;                    // TXS (No flags updated)
+			case 0xAA: regX = regA; updateFlags(regX); break;
+			case 0xA8: regY = regA; updateFlags(regY); break;
+			case 0x8A: regA = regX; updateFlags(regA); break;
+			case 0x98: regA = regY; updateFlags(regA); break;
+			case 0xBA: regX = regSP; updateFlags(regX); break;
+			case 0x9A: regSP = regX; break;
 			}
+
+			addressBus = regPC;
 			break;
 		}
 
 		case OP_INTERNAL_INC_DEC: {
-			addressBus = regPC;
 			read(regPC);
-
-		
 			if (mathOP != OP_NONE) {
 				executeALU(mathOP);
 				mathOP = OP_NONE;
 			}
+
+			addressBus = regPC;
 			break;
 		}
 
 		case OP_SET_FLAG: {
-			addressBus = regPC;
 			read(regPC);
-
 			switch (iReg) {
-			case 0x38: regP |= 0x01; break; // SEC
-			case 0xF8: regP |= 0x08; break; // SED
-			case 0x78: regP |= 0x04; break; // SEI
+			case 0x38: regP |= 0x01; break;
+			case 0xF8: regP |= 0x08; break;
+			case 0x78: regP |= 0x04; break;
 			}
+
+			addressBus = regPC;
 			break;
 		}
 
 		case OP_CLEAR_FLAG: {
-			addressBus = regPC;
-			read(regPC); 
-
-			if (traceCPU) {
-				if (iReg == 0x58) { // Only log CLI
-					printf("[Cycle %llu] EXECUTED CLI! I_Flag is now 0.\n", currentCycles);
-				}
-			}
-
-
+			read(regPC);
 			switch (iReg) {
-			case 0x18: regP &= ~0x01; break; // CLC
-			case 0xD8: regP &= ~0x08; break; // CLD
-			case 0x58: regP &= ~0x04; break; // CLI
-			case 0xB8: regP &= ~0x40; break; // CLV
+			case 0x18: regP &= ~0x01; break;
+			case 0xD8: regP &= ~0x08; break;
+			case 0x58: regP &= ~0x04; break;
+			case 0xB8: regP &= ~0x40; break;
 			}
 
-
-
+			addressBus = regPC;
 			break;
 		}
 

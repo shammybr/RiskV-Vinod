@@ -1,16 +1,4 @@
-﻿  NES.cpp
-F:\RiskV-Vinod\RiskV\NES.cpp(241,10): warning C4477: 'printf' : format string '%llu' requires an argument of type 'unsigned __int64', but variadic argument 1 has type 'int'
-      F:\RiskV-Vinod\RiskV\NES.cpp(241,10):
-      consider using '%u' in the format string
-      F:\RiskV-Vinod\RiskV\NES.cpp(241,10):
-      consider using '%I32u' in the format string
-  
-F:\RiskV-Vinod\RiskV\NES.cpp(241,10): warning C4473: 'printf' : not enough arguments passed for format string
-      F:\RiskV-Vinod\RiskV\NES.cpp(241,10):
-      placeholders and their parameters expect 2 variadic arguments, but 1 were provided
-      F:\RiskV-Vinod\RiskV\NES.cpp(241,10):
-      the missing variadic argument 2 is required by format string '%02X'
-  
+﻿  RiskV.cpp
   Generating code
   1 of 568 functions ( 0.2%) were compiled, the rest were copied from previous compilation.
     0 functions were new in current compilation

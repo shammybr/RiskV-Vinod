@@ -155,7 +155,7 @@ int main(){
                     if (nes->apu->dpcm->enabled || nes->apu->dpcm->implicitAbortFlag) {
                         nes->dpcmActive = true;
                         nes->dpcmHaltCycles = isGet ? 4 : 3;
-                    }
+                    }   
 
                  
                     nes->apu->dpcm->dmaPending = false;
@@ -208,9 +208,9 @@ int main(){
                 }
                 else {
                   
-                    if (nes->addressBus != 0x2007) {
+            
                         nes->read(nes->addressBus);
-                    }
+              
                 }
                 nes->dpcmHaltCycles--;
             }
