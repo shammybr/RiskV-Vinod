@@ -359,13 +359,15 @@ public:
 	};
 
 	double audioCycleCounter = 0;
-	bool     evenCycle = false;  
+
     bool pendingFrameIRQClear = false;
 	float prevRawSample = 0.0f;
 	float prevFilteredSample = 0.0f;
 	uint16_t frameCounter = 0;
     uint8_t framIrqDelay = 0;
-
+    uint8_t shiftRegister = 0;
+    uint8_t controllerShiftDelay = 0;
+    uint8_t controller2ShiftDelay = 0;
 	Pulse* pulse1 = nullptr;
 	Pulse* pulse2 = nullptr;
 	Noise* noise = nullptr;
@@ -373,12 +375,17 @@ public:
     DPCM* dpcm = nullptr;
     NES* nes = nullptr;
 
+
+    
+    bool strobeActive = false;
     bool frameCounterMode = false; // 0 = 4-step, 1 = 5-step
     bool irqInhibit = false;
+    bool cpuIRQLine = false;
     bool frameIRQ = false;
     bool dmcIRQ = false;
     bool dmcIrqEnable = false;
     bool debugTest7 = false;
+    bool apuControllerPortsStrobed = false;
 
     int frameCounterResetDelay = 0;
     uint8_t pending4017Value = 0;

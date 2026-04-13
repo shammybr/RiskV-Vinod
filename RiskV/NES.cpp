@@ -184,18 +184,13 @@ uint8_t NES::read(uint16_t address) {
 	//	irqLatched = isIRQActive && !(regP & 0x04);
 
 	}
-	else if (address == 0x4016) { // Player 1
+	else if (address == 0x4016) { 
 		
-		uint8_t controllerBit = (controllerState[0] & 0x80) ? 1 : 0;
-		data = (data & 0xE0) | controllerBit;
+		data = apu->read(address);
 
-		controllerState[0] <<= 1;
 	}
-	else if (address == 0x4017) { // Player 2
-		uint8_t controllerBit = (controllerState[0] & 0x80) ? 1 : 0;
-		data = (data & 0xE0) | controllerBit;
-
-		controllerState[1] <<= 1;
+	else if (address == 0x4017) { 
+		data = apu->read(address);
 	}
 
 
@@ -279,12 +274,7 @@ void NES::write(uint16_t address, uint8_t data) {
 	//	currentCycles += 512;
 //		extraCycles += 512;
 	}
-	else if (address == 0x4016) { //controlurrr
-		if (data & 0x0001) {
-			controllerState[0] = controller[0];
-			controllerState[1] = controller[1];
-		}
-	}
+
 	else if (address >= 0x4000 && address <= 0x4017){
 
 		apu->write(address, data);
@@ -1493,6 +1483,16 @@ int NES::RISCStep(NESLogger* logger) {
 	MicroOp nextOp = opQueue[queueIndex + 1];
 	isWritingMemory = (nextOp == OP_WRITE_MEM || nextOp == OP_PUSH_DATA);
 
+	if (traceCPU) {
+		if (addressBus != oldAddressBus) {
+			printf("[Cycle %llu] addressBus changed: %04X -> %04X during Op %d\n",
+				currentCycles, oldAddressBus, addressBus, currentOp);
+			oldAddressBus = addressBus;
+
+
+		}
+	}
+
 	if (regPC == 0x4013) {
 	//	LOGGO = true;
 	}
@@ -1562,7 +1562,7 @@ int NES::RISCStep(NESLogger* logger) {
 
 		bool isInterruptDisabled = (regP & 0x04) > 0;
 
-		bool isIRQActive = (apu->frameIRQ && !apu->irqInhibit) || apu->dpcm->irqPending;
+		bool isIRQActive = (apu->cpuIRQLine && !apu->irqInhibit) || apu->dpcm->irqPending;
 
 		if (false) {
 			printf("[Cycle %llu] POLLING: Opcode %02X | isIRQActive: %d | I_Flag: %d\n",
@@ -1674,7 +1674,7 @@ int NES::RISCStep(NESLogger* logger) {
 				addressBus = regPC;
 			}
 			else {
-				addressBus = addressLatch; // Next cycle is zero page execution
+				addressBus = addressLatch; 
 			}
 			break;
 		}
@@ -1706,7 +1706,7 @@ int NES::RISCStep(NESLogger* logger) {
 				updateFlags(*connectedWire);
 			}
 
-			addressBus = regPC; // Instruction complete
+			addressBus = regPC;
 			break;
 		}
 
@@ -1730,7 +1730,7 @@ int NES::RISCStep(NESLogger* logger) {
 				updateFlags(*connectedWire);
 			}
 
-			// RMW instructions execute a dummy write to the same address next
+		
 			addressBus = isRMW ? addr : regPC;
 			break;
 		}
@@ -1788,7 +1788,7 @@ int NES::RISCStep(NESLogger* logger) {
 					updateFlags(*connectedWire);
 				}
 
-				addressBus = regPC; // Instruction complete
+				addressBus = regPC; 
 				break;
 			}
 
@@ -1800,7 +1800,7 @@ int NES::RISCStep(NESLogger* logger) {
 				addressHighLatch = (addressHighLatch + 1) & 0xFF;
 			}
 
-			// Setup target address for the upcoming read/write micro-op
+	
 			addressBus = isZeroPage ? addressLatch : ((addressHighLatch << 8) | addressLatch);
 			break;
 		}
@@ -2219,12 +2219,12 @@ void NES::executeALU(MicroOp mathOP){
 		}
 
 		case OP_ALU_SLO: {
-			// 1. ASL part: Shift dataLatch left, Bit 7 goes to Carry
+			
 			uint8_t oldData = dataLatch;
 			(oldData & 0x80) ? (regP |= 0x01) : (regP &= ~0x01); // Set Carry
 			dataLatch = oldData << 1;
 
-			// 2. ORA part: Accumulator |= shifted value
+			
 			regA |= dataLatch;
 			updateFlags(regA); 
 		
