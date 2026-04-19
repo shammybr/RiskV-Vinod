@@ -3,6 +3,7 @@
 #include "SDL3/SDL_events.h"
 #include <vector>  
 #include <cstdint>
+#include "imgui.h"
 
 struct NoWire {
 	SDL_FRect wire;
@@ -81,7 +82,7 @@ public:
 	SWire* cpuTopWires[20];
 	SWire* cpuBotWires[20];
 
-
+	ImGuiWindowFlags regFlags;
 	SDL_FRect lineLeft;
 	SDL_FRect lineRight;
 

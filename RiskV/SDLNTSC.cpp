@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "SDLNTSC.h"
 #include "SDL3/SDL.h"
 #include <iostream>
@@ -24,6 +24,12 @@ SDLNTSC::SDLNTSC(int windowW, int windowH) : nesBuffer(NES_WIDTH* NES_HEIGHT, 0)
                 
         gameRect = { (float)windowW / 4 , 0.0f, 640.0f, 480.0f };
         cpuRect = { 0.0f , 480.0f / 2 , 640.0f / 2, 480.0f };
+        regFlags = 0;
+        regFlags |= ImGuiWindowFlags_NoTitleBar;   
+        regFlags |= ImGuiWindowFlags_NoResize;     
+        regFlags |= ImGuiWindowFlags_NoMove;       
+        regFlags |= ImGuiWindowFlags_NoCollapse;   
+        regFlags |= ImGuiWindowFlags_NoScrollbar;
 
         calculateLines();
      
@@ -439,15 +445,10 @@ void SDLNTSC::draw(int frames){
     }
 
 
-    ImGui::PopStyleColor();
-    ImGui::PopStyleVar();
-    ImGui::PopStyleVar();
+
 
     ImGui::Text("P. Counter");
 
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(-3.0f, defaultSpacing.y));
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
-    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(80, 80, 80, 255));
 
     drawList = ImGui::GetWindowDrawList();
     ImGui::SameLine();
@@ -503,9 +504,121 @@ void SDLNTSC::draw(int frames){
     ImGui::Text(" %i", frames);
     ImGui::End();
 
+    ImGui::SetNextWindowPos(ImVec2(lineLeft.x + lineThicc, lineLeft.y + lineThicc), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(lineTop.w - (lineThicc * 2), lineLeft.h - lineThicc), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Addr & Data", NULL, regFlags);
+    ImGui::Text("Address");
+
+
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(-3.0f, defaultSpacing.y));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(80, 80, 80, 255));
+
+    drawList = ImGui::GetWindowDrawList();
+    ImGui::SameLine(0.0f, 10.0f);
+    alignX = ImGui::GetCursorPosX();
+    ImGui::Text(" ");
+
+    char sixTeenBits[16];
+    for (int i = 0; i < 16; i++) {
+        if (nes->addressBus & (1 << (15 - i))) {
+            sixTeenBits[i] = '1';
+        }
+        else {
+            sixTeenBits[i] = '0';
+        }
+    }
+
+
+    for (int i = 0; i < 16; i++) {
+        if(i == 8){
+            ImGui::SetCursorPosX(alignX);
+            ImGui::Text(" ");
+        }
+
+        ImGui::SameLine();
+        ImVec2 p = ImGui::GetCursorScreenPos();
+
+
+        drawList->AddRectFilled(p, ImVec2(p.x + 20, p.y + 20), IM_COL32(60, 60, 60, 255));
+
+
+        char label[2] = { sixTeenBits[i], '\0' };
+        ImVec2 textSize = ImGui::CalcTextSize(label);
+
+
+        ImVec2 textPos = ImVec2(
+            p.x + (20.0f - textSize.x) * 0.5f,
+            p.y + (20.0f - textSize.y) * 0.5f + 1.0f
+        );
+
+        if(i > 4)
+        drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), label);
+        else
+        drawList->AddText(textPos, IM_COL32(196, 64, 47, 255), label);
+
+        ImGui::Dummy(ImVec2(25, 25));
+    }
+
+
+
+    ImGui::Text("Data");
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(alignX);
+    drawList = ImGui::GetWindowDrawList();
+    ImGui::Text(" ");
+
+    for (int i = 0; i < 8; i++) {
+        if (nes->cpuDataBus & (1 << (7 - i))) {
+            bits[i] = '1';
+        }
+        else {
+            bits[i] = '0';
+        }
+    }
+
+
+    for (int i = 0; i < 8; i++) {
+        ImGui::SameLine();
+        ImVec2 p = ImGui::GetCursorScreenPos();
+
+
+        drawList->AddRectFilled(p, ImVec2(p.x + 20, p.y + 20), IM_COL32(60, 60, 60, 255));
+
+
+        char label[2] = { bits[i], '\0' };
+        ImVec2 textSize = ImGui::CalcTextSize(label);
+
+
+        ImVec2 textPos = ImVec2(
+            p.x + (20.0f - textSize.x) * 0.5f,
+            p.y + (20.0f - textSize.y) * 0.5f + 1.0f
+        );
+
+
+        drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), label);
+
+        ImGui::Dummy(ImVec2(25, 25));
+    }
+
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar();
+    ImGui::PopStyleVar();
+
+    ImGui::End();
 
     SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
     SDL_RenderClear(renderer);
+
+
+
+
+
+
+
+
+
+
 
 
     DrawGame();
@@ -560,10 +673,10 @@ void SDLNTSC::DrawCPU() {
 
 
 
-    SDL_FRect topRect = { cpuRect.x , cpuRect.y, cpuRect.w, lineThicc };
-    SDL_FRect bopRect = { cpuRect.x , cpuRect.y + (cpuRect.h) - lineThicc, cpuRect.w, lineThicc };
-    SDL_RenderFillRect(renderer, &topRect);
-    SDL_RenderFillRect(renderer, &bopRect);
+  //  SDL_FRect topRect = { cpuRect.x , cpuRect.y, cpuRect.w, lineThicc };
+   // SDL_FRect bopRect = { cpuRect.x , cpuRect.y + (cpuRect.h) - lineThicc, cpuRect.w, lineThicc };
+    //SDL_RenderFillRect(renderer, &topRect);
+   // SDL_RenderFillRect(renderer, &bopRect);
 
 
     SDL_SetRenderDrawColor(renderer, 138, 138, 138, 255);
@@ -637,14 +750,7 @@ void SDLNTSC::DrawCPU() {
             prox = prox->prox;
         }
            
-            
-        prox = cpuTopWires[i]->firstLine;
-        while (prox != NULL) {
-            SDL_RenderFillRect(renderer, &prox->wire);
-
-            prox = prox->prox;
-        }
-        
+                    
 
 
     }
@@ -674,15 +780,16 @@ void SDLNTSC::DrawCPU() {
     
     //data
     //OFF
-    SDL_SetRenderDrawColor(renderer, 130, 193, 193, 255);
+    SDL_SetRenderDrawColor(renderer, 130, 193, 193, 100);
 
-    for (int i = 0; i < 20; i++) {
+    for (int i = 12; i < 20; i++) {
 
       
 
 
         NoWire* prox = cpuTopWires[i]->firstLine;
         while (prox != NULL) {
+            if (!(nes->cpuDataBus & (1 << i - 12)))
             SDL_RenderFillRect(renderer, &prox->wire);
 
             prox = prox->prox;
@@ -692,7 +799,25 @@ void SDLNTSC::DrawCPU() {
 
     }
 
+    //ON
+    SDL_SetRenderDrawColor(renderer, 130, 193, 193, 255);
 
+    for (int i = 12; i < 20; i++) {
+
+
+
+
+        NoWire* prox = cpuTopWires[i]->firstLine;
+        while (prox != NULL) {
+            if (nes->cpuDataBus & (1 << i - 12))
+                SDL_RenderFillRect(renderer, &prox->wire);
+
+            prox = prox->prox;
+        }
+
+
+
+    }
 
 
 }

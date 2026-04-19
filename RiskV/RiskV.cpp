@@ -31,6 +31,7 @@ int main(){
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io; 
+    io.IniFilename = NULL;
 
     const char* fontPath = "lib/imgui/misc/fonts/Roboto-Medium.ttf";
     ImFont* fontDefault = io.Fonts->AddFontFromFileTTF(fontPath, 20.0f);
