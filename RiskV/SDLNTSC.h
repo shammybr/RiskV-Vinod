@@ -60,6 +60,8 @@ public:
 	std::vector<uint8_t> nesBuffer;
 	std::vector<uint16_t> ntscOutput;
 
+	class NES* nes;
+	class PPU* ppu;
 
 	struct SDL_Window* window;
 	struct SDL_Renderer* renderer;
@@ -74,9 +76,9 @@ public:
 	SDL_FRect cpuRect;
 
 	SDL_FRect cpuTopPins[20];
-	SDL_FRect cpuTopWires[20];
 	SDL_FRect cpuBotPins[20];
 
+	SWire* cpuTopWires[20];
 	SWire* cpuBotWires[20];
 
 
@@ -111,11 +113,12 @@ public:
 	void calculateLines();
 
 	void quit();
-	void draw();
+	void draw(int frames);
 	void DrawGame();
 	void DrawCPU();
 	bool poll(uint8_t* controller, std::vector<float>& audioBuffer);
 
 	void playAudio(std::vector<float>& audioBuffer);
 
+	void setNes(NES* _nes);
 };

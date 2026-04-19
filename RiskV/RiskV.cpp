@@ -12,6 +12,10 @@
 #include "NESLogger.h"
 #include <SDL3/SDL.h>
 #include "SDLNTSC.h"
+#include "imgui.h"
+#include "backends/imgui_impl_sdl3.h"
+#include "backends/imgui_impl_sdlrenderer3.h"
+
 
 void CompareFiles(const std::string& file1Path, const std::string& file2Path, const std::string& outputPath);
 
@@ -24,12 +28,24 @@ int main(){
 
     SDLNTSC* sdl = new SDLNTSC(1280, 720);
 
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io; 
+
+    const char* fontPath = "lib/imgui/misc/fonts/Roboto-Medium.ttf";
+    ImFont* fontDefault = io.Fonts->AddFontFromFileTTF(fontPath, 20.0f);
+
+    ImGui::StyleColorsDark();
+    ImGui_ImplSDL3_InitForSDLRenderer(sdl->window, sdl->renderer);
+    ImGui_ImplSDLRenderer3_Init(sdl->renderer);
+
     //RiskVProcessor* processor = new RiskVProcessor(0x10000);
     NES* nes = new NES();
     NESROM* rom = new NESROM("ROM/AccuracyCoin.nes");
     nes->ppu->videoBuffer = sdl->nesBuffer.data();
 
     nes->loadRom(rom);
+    sdl->setNes(nes);
   //  nes->reset();
 
    
@@ -56,7 +72,7 @@ int main(){
 
     auto lastFpsTime = std::chrono::steady_clock::now();
     int frames = 0;
-
+    int fps = 0;
     uint64_t totalCpuCycles = 0;
     int totalPpuCycles = 0;
     int totalApuCycles = 0;
@@ -98,7 +114,7 @@ int main(){
                     //   sleep = true;
                     frames++;
                     sdl->playAudio(nes->apu->audioBuffer);
-                    sdl->draw();
+                    sdl->draw(fps);
                     if (nes->wannaSave) {
                         nes->saveGame();
                     }
@@ -116,6 +132,7 @@ int main(){
 
             if (now >= lastFpsTime + std::chrono::seconds(1)) {
                 std::cout << std::dec << "FPS: " << frames << std::endl;
+                fps = frames;
                 frames = 0;
                 lastFpsTime += std::chrono::seconds(1);
             }
@@ -275,7 +292,7 @@ int main(){
                 if (nes->ppu->step(logger)) {
                     frames++;
                     sdl->playAudio(nes->apu->audioBuffer);
-                    sdl->draw();
+                    sdl->draw(fps);
                     if (nes->wannaSave) nes->saveGame();
 
                
@@ -291,6 +308,7 @@ int main(){
 
             if (now >= lastFpsTime + std::chrono::seconds(1)) {
        //         std::cout << std::dec << "FPS: " << frames << std::endl;
+                fps = frames;
                 frames = 0;
                 lastFpsTime += std::chrono::seconds(1);
             }

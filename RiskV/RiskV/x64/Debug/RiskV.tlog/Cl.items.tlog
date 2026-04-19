@@ -1,4 +1,11 @@
 F:\RiskV-Vinod\RiskV\APU.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\APU.obj
+F:\RiskV-Vinod\RiskV\lib\imgui\backends\imgui_impl_sdl3.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\imgui_impl_sdl3.obj
+F:\RiskV-Vinod\RiskV\lib\imgui\backends\imgui_impl_sdlrenderer3.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\imgui_impl_sdlrenderer3.obj
+F:\RiskV-Vinod\RiskV\lib\imgui\imgui.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\imgui.obj
+F:\RiskV-Vinod\RiskV\lib\imgui\imgui_demo.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\imgui_demo.obj
+F:\RiskV-Vinod\RiskV\lib\imgui\imgui_draw.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\imgui_draw.obj
+F:\RiskV-Vinod\RiskV\lib\imgui\imgui_tables.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\imgui_tables.obj
+F:\RiskV-Vinod\RiskV\lib\imgui\imgui_widgets.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\imgui_widgets.obj
 F:\RiskV-Vinod\RiskV\lib\nes_ntsc\nes_ntsc.c;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\nes_ntsc.obj
 F:\RiskV-Vinod\RiskV\NES.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\NES.obj
 F:\RiskV-Vinod\RiskV\NESLogger.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\NESLogger.obj

@@ -3,7 +3,10 @@
 #include "SDL3/SDL.h"
 #include <iostream>
 #include <vector>
-
+#include "imgui.h"
+#include "backends/imgui_impl_sdl3.h"
+#include "backends/imgui_impl_sdlrenderer3.h"
+#include "NES.h"
 
 SDLNTSC::SDLNTSC(int windowW, int windowH) : nesBuffer(NES_WIDTH* NES_HEIGHT, 0),
                     ntscOutput(NTSC_OUT_WIDTH* NTSC_OUT_HEIGHT, 0) 
@@ -105,6 +108,7 @@ void SDLNTSC::calculateLines() {
 
 
         cpuBotWires[i] = new SWire();
+        cpuTopWires[i] = new SWire();
 
     }
 
@@ -153,19 +157,22 @@ void SDLNTSC::calculateLines() {
     //CPU WIRES
 
 
-
+    //BOT
+    float botWire3Y = 0;
     for (int i = 0; i < 8; i++) {
-        SDL_FRect botWire = { startX + ((10 - i) * step),
+        SDL_FRect botWire = { (startX + ((10 - i) * step)) + (lineThicc / 2) - (wireThicc / 2),
         lineBottom.y + lineThicc + 15.0f,
         wireThicc,
         50.0f + (5 * i) };
 
-        SDL_FRect botWire2 = { startX + ((10 - i) * step),
+        SDL_FRect botWire2 = { botWire.x,
         botWire.y + botWire.h,
         RAMTopPins[11 - i].x - botWire.x + wireThicc,
         wireThicc };
 
-        SDL_FRect botWire3 = { RAMTopPins[11 - i].x + (wireThicc / 2),
+        botWire3Y = botWire2.y;
+
+        SDL_FRect botWire3 = { RAMTopPins[11 - i].x + (lineThicc / 2) - (wireThicc / 2),
         botWire.y + botWire.h,
         wireThicc,
         RAMTopPins[11 - i].y - botWire2.y - 10.0f };
@@ -180,12 +187,12 @@ void SDLNTSC::calculateLines() {
 
 
     //11
-    SDL_FRect botWire = { startX + ((11) * step),
+    SDL_FRect botWire = { startX + ((11) * step) + (lineThicc / 2) - (wireThicc / 2),
        lineBottom.y + lineThicc + 15.0f,
        wireThicc,
        50.0f - (5 ) };
 
-    SDL_FRect botWire2 = { startX + ((11) * step),
+    SDL_FRect botWire2 = { botWire.x,
     botWire.y + botWire.h,
     RAMBotPins[11].x - botWire.x + wireThicc + 20.0f,
     wireThicc };
@@ -200,7 +207,7 @@ void SDLNTSC::calculateLines() {
     RAMBotPins[10].x - botWire3.x,
     wireThicc };
 
-    SDL_FRect botWire5 = { RAMBotPins[10].x ,
+    SDL_FRect botWire5 = { RAMBotPins[10].x + (lineThicc / 2) - (wireThicc / 2) ,
     RAMBotPins[10].y + 10.0f,
     wireThicc,
     botWire4.y - RAMBotPins[11].y - 10.0f + wireThicc};
@@ -213,12 +220,12 @@ void SDLNTSC::calculateLines() {
 
 
     //12
-    botWire = { startX + ((12) * step),
+    botWire = { startX + ((12) * step) + (lineThicc / 2) - (wireThicc / 2),
     lineBottom.y + lineThicc + 15.0f,
     wireThicc,
     50.0f - (10) };
 
-    botWire2 = { startX + ((12) * step),
+    botWire2 = { botWire.x,
     botWire.y + botWire.h,
     RAMBotPins[11].x - botWire.x + wireThicc + 30.0f,
     wireThicc };
@@ -233,7 +240,7 @@ void SDLNTSC::calculateLines() {
     RAMBotPins[9].x - botWire3.x,
     wireThicc };
 
-    botWire5 = { RAMBotPins[9].x ,
+    botWire5 = { RAMBotPins[9].x + (lineThicc / 2) - (wireThicc / 2) ,
     RAMBotPins[9].y + 10.0f,
     wireThicc,
     botWire4.y - RAMBotPins[9].y - 10.0f + wireThicc };
@@ -247,12 +254,12 @@ void SDLNTSC::calculateLines() {
 
     //13
 
-    botWire = { startX + ((13) * step),
+    botWire = { startX + ((13) * step) + (lineThicc / 2) - (wireThicc / 2),
     lineBottom.y + lineThicc + 15.0f,
     wireThicc,
     50.0f - (15) };
 
-    botWire2 = { startX + ((13) * step),
+    botWire2 = { botWire.x,
     botWire.y + botWire.h,
     RAMBotPins[11].x - botWire.x + wireThicc + 40.0f,
     wireThicc };
@@ -267,7 +274,7 @@ void SDLNTSC::calculateLines() {
     RAMBotPins[6].x - botWire3.x,
     wireThicc };
 
-    botWire5 = { RAMBotPins[6].x ,
+    botWire5 = { RAMBotPins[6].x + (lineThicc / 2) - (wireThicc / 2) ,
     RAMBotPins[6].y + 10.0f,
     wireThicc,
     botWire4.y - RAMBotPins[10].y - 10.0f + wireThicc };
@@ -279,6 +286,85 @@ void SDLNTSC::calculateLines() {
     cpuBotWires[13]->insertLine(botWire5);
 
 
+    //TOP
+    //20 - 16
+
+    int lastX = startX + ((19) * step) + (wireThicc / 2);
+
+    for (int i = 0; i < 5; i++) {
+        SDL_FRect topWire = { startX + ((19 - i) * step) + (wireThicc / 2),
+        lineTop.y + lineThicc - 15.0f,
+        wireThicc,
+        -20.0f - (5 * i)};
+
+        SDL_FRect topWire2 = { topWire.x,
+        topWire.y + topWire.h,
+        10.0f + (lastX - topWire.x) + (5 * i),
+        wireThicc };
+
+        SDL_FRect topWire3 = { topWire2.x + topWire2.w,
+        topWire2.y,
+        wireThicc ,
+        RAMBotPins[4 - i].y - topWire2.y + 60.0f + (5 * i)};
+
+        SDL_FRect topWire4 = { topWire3.x + wireThicc,
+        topWire3.y + topWire3.h,
+        RAMBotPins[4 - i].x - topWire3.x,
+        wireThicc };
+
+        SDL_FRect topWire5 = { RAMBotPins[4 - i].x + (lineThicc / 2) - (wireThicc / 2)  ,
+        RAMBotPins[4 - i].y + 10.0f,
+        wireThicc,
+        topWire4.y - RAMBotPins[4].y  + wireThicc - 10.0f };
+
+        cpuTopWires[19 - i]->insertLine(topWire);
+        cpuTopWires[19 - i]->insertLine(topWire2);
+        cpuTopWires[19 - i]->insertLine(topWire3);
+        cpuTopWires[19 - i]->insertLine(topWire4);
+        cpuTopWires[19 - i]->insertLine(topWire5);
+
+
+    }
+    
+ 
+
+    
+    for (int i = 0; i < 3; i++) {
+        SDL_FRect topWire = { startX + ((14 - i) * step) + (lineThicc / 2) - (wireThicc / 2),
+        lineTop.y + lineThicc - 15.0f,
+        wireThicc,
+        -20.0f + (5 * i)};
+
+        SDL_FRect topWire2 = { topWire.x,
+        topWire.y + topWire.h,
+        cpuTopPins[0].x - topWire.x - 20.0f + (5 * i),
+        wireThicc };
+
+        SDL_FRect topWire3 = { topWire2.x + topWire2.w,
+        topWire2.y,
+        wireThicc,
+        botWire3Y - topWire2.y + 15.0f - (5 * i)};
+
+        SDL_FRect topWire4 = { topWire3.x,
+        topWire3.y + topWire3.h,
+        (RAMTopPins[1 + i].x + (lineThicc / 2) - (wireThicc / 2)) - topWire3.x,
+        wireThicc };
+
+
+        SDL_FRect topWire5 = { RAMTopPins[1 + i].x + (lineThicc / 2) - (wireThicc / 2) ,
+        RAMTopPins[1 + i].y - 10.0f,
+        wireThicc,
+        topWire4.y - (RAMTopPins[1 + i].y - 10.0f) };
+
+
+
+        cpuTopWires[14 - i]->insertLine(topWire);
+        cpuTopWires[14 - i]->insertLine(topWire2);
+        cpuTopWires[14 - i]->insertLine(topWire3);
+        cpuTopWires[14 - i]->insertLine(topWire4);
+        cpuTopWires[14 - i]->insertLine(topWire5);
+
+    }
 }
 
 
@@ -290,17 +376,147 @@ void SDLNTSC::quit(){
     SDL_Quit();
 }
 
-void SDLNTSC::draw(){
-   
+void SDLNTSC::draw(int frames){
+
+
+    ImGui_ImplSDLRenderer3_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
+
+    ImGui::NewFrame();
+
+
+
+    ImGui::SetNextWindowPos(ImVec2(5, 5), ImGuiCond_FirstUseEver);
+  //  ImGui::SetNextWindowSize(ImVec2(10, 10), ImGuiCond_FirstUseEver);
+    ImGui::Begin("CPU Registers");
+    ImGui::Text("Accumulator");
+
+    ImVec2 defaultSpacing = ImGui::GetStyle().ItemSpacing;
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(-3.0f, defaultSpacing.y));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(80, 80, 80, 255));
+
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImGui::SameLine(0.0f, 20.0f);
+    float alignX = ImGui::GetCursorPosX();
+    ImGui::Text(" ");
+
+    char bits[8];
+    for (int i = 0; i < 8; i++) {
+        if (nes->regA & (1 << (7 - i))) {
+            bits[i] = '1';
+        }
+        else {
+            bits[i] = '0';
+        }
+    }
+
+
+    for (int i = 0; i < 8; i++) {
+        ImGui::SameLine();
+
+  
+        ImVec2 p = ImGui::GetCursorScreenPos();
+
+     
+        drawList->AddRectFilled(p, ImVec2(p.x + 20, p.y + 20), IM_COL32(60, 60, 60, 255));
+
+
+        char label[2] = { bits[i], '\0'};
+        ImVec2 textSize = ImGui::CalcTextSize(label);
+
+
+        ImVec2 textPos = ImVec2(
+            p.x + (20.0f - textSize.x) * 0.5f,
+            p.y + (20.0f - textSize.y) * 0.5f + 1.0f 
+        );
+
+    
+        drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), label);
+
+      
+        ImGui::Dummy(ImVec2(25, 25));
+    }
+
+
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar();
+    ImGui::PopStyleVar();
+
+    ImGui::Text("P. Counter");
+
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(-3.0f, defaultSpacing.y));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(80, 80, 80, 255));
+
+    drawList = ImGui::GetWindowDrawList();
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(alignX);
+    ImGui::Text(" ");
+
+    for (int i = 0; i < 8; i++) {
+        if (nes->regPC & (1 << (7 - i))) {
+            bits[i] = '1';
+        }
+        else {
+            bits[i] = '0';
+        }
+    }
+
+
+
+    for (int i = 0; i < 8; i++) {
+        ImGui::SameLine();
+
+
+        ImVec2 p = ImGui::GetCursorScreenPos();
+
+
+        drawList->AddRectFilled(p, ImVec2(p.x + 20, p.y + 20), IM_COL32(60, 60, 60, 255));
+
+
+        char label[2] = { bits[i], '\0'};
+        ImVec2 textSize = ImGui::CalcTextSize(label);
+
+
+        ImVec2 textPos = ImVec2(
+            p.x + (20.0f - textSize.x) * 0.5f,
+            p.y + (20.0f - textSize.y) * 0.5f + 1.0f
+        );
+
+
+        drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), label);
+
+
+        ImGui::Dummy(ImVec2(25, 25));
+    }
+
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar();
+    ImGui::PopStyleVar();
+
+    if (ImGui::Button("FPS:")) {
+      
+    }
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(alignX);
+    ImGui::Text(" %i", frames);
+    ImGui::End();
+
+
+    SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
+    SDL_RenderClear(renderer);
+
+
     DrawGame();
 
     DrawCPU();
 
 
 
-    //SDL_RenderTexture(renderer, texture, NULL, &dstRect);
+    ImGui::Render();
+    ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer);
 
-    //SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 
     SDL_RenderPresent(renderer);
 }
@@ -401,29 +617,80 @@ void SDLNTSC::DrawCPU() {
 
 
 
+    //Wirezz
+    //Address
+    //OFF
+    SDL_SetRenderDrawColor(renderer, 213, 213, 157, 100);
 
-    //wireez
+    for (int i = 3; i < 20; i++) {
 
-    for (int i = 0; i < 20; i++) {
 
-        SDL_SetRenderDrawColor(renderer, 90, 250, 0, 255);
-        SDL_RenderFillRect(renderer, &cpuTopWires[i]);
 
-        if (i > 2 && i < 14) {
-            NoWire* prox = cpuBotWires[i]->firstLine;
-            while (prox != NULL) {
-                SDL_RenderFillRect(renderer, &prox->wire);
+       
+        NoWire* prox = cpuBotWires[i]->firstLine;
+        while (prox != NULL) {
 
-                prox = prox->prox;
-            }
+  
+            if (!(nes->addressBus & (1 << i - 3)))
+            SDL_RenderFillRect(renderer, &prox->wire);
+
+            prox = prox->prox;
+        }
            
             
+        prox = cpuTopWires[i]->firstLine;
+        while (prox != NULL) {
+            SDL_RenderFillRect(renderer, &prox->wire);
+
+            prox = prox->prox;
         }
+        
 
 
     }
 
+    //ON
+     
+    SDL_SetRenderDrawColor(renderer, 213, 213, 157, 255);
 
+    for (int i = 3; i < 20; i++) {
+
+
+
+
+        NoWire* prox = cpuBotWires[i]->firstLine;
+        while (prox != NULL) {
+
+
+            if (nes->addressBus & (1 << i - 3))
+                SDL_RenderFillRect(renderer, &prox->wire);
+
+            prox = prox->prox;
+        }
+
+
+
+    }
+    
+    //data
+    //OFF
+    SDL_SetRenderDrawColor(renderer, 130, 193, 193, 255);
+
+    for (int i = 0; i < 20; i++) {
+
+      
+
+
+        NoWire* prox = cpuTopWires[i]->firstLine;
+        while (prox != NULL) {
+            SDL_RenderFillRect(renderer, &prox->wire);
+
+            prox = prox->prox;
+        }
+
+
+
+    }
 
 
 
@@ -433,6 +700,9 @@ void SDLNTSC::DrawCPU() {
 
 bool SDLNTSC::poll(uint8_t *controller, std::vector<float>& audioBuffer) {
     while (SDL_PollEvent(&event)) {
+        ImGui_ImplSDL3_ProcessEvent(&event);
+
+
         if (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) {
             bool pressed = (event.type == SDL_EVENT_KEY_DOWN);
             uint8_t bitmask = 0;
@@ -461,6 +731,13 @@ bool SDLNTSC::poll(uint8_t *controller, std::vector<float>& audioBuffer) {
 
 
         else if (event.type == SDL_EVENT_QUIT) {
+            ImGui_ImplSDLRenderer3_Shutdown();
+            ImGui_ImplSDL3_Shutdown();
+            ImGui::DestroyContext();
+
+            SDL_DestroyRenderer(renderer);
+            SDL_DestroyWindow(window);
+            SDL_Quit();
             return false;
         }
     }
@@ -487,4 +764,10 @@ void SDLNTSC::playAudio(std::vector<float>& audioBuffer) {
 
         audioBuffer.clear();
     }
+}
+
+void SDLNTSC::setNes(NES* _nes){
+    nes = _nes;
+    ppu = _nes->ppu;
+
 }

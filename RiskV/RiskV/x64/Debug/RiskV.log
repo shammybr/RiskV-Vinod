@@ -1,4 +1,7 @@
 ﻿  SDLNTSC.cpp
-F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(12,17): warning C4804: '<': unsafe use of type 'bool' in operation
-F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(484,36): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(15,17): warning C4804: '<': unsafe use of type 'bool' in operation
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(292,15): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(634,16): warning C4554: '<<': check operator precedence for possible error; use parentheses to clarify precedence
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(665,16): warning C4554: '<<': check operator precedence for possible error; use parentheses to clarify precedence
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(761,36): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
   RiskV.vcxproj -> F:\RiskV-Vinod\RiskV\x64\Debug\RiskV.exe

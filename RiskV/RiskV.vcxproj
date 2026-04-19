@@ -76,7 +76,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>F:\RiskV-Vinod\SDL-release-3.4.2\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>F:\RiskV-Vinod\SDL-release-3.4.2\include;F:\RiskV-Vinod\RiskV\lib\imgui</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -91,7 +91,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>F:\RiskV-Vinod\SDL-release-3.4.2\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>F:\RiskV-Vinod\SDL-release-3.4.2\include;F:\RiskV-Vinod\RiskV\lib\imgui</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -106,7 +106,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>F:\RiskV-Vinod\SDL-release-3.4.2\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>F:\RiskV-Vinod\SDL-release-3.4.2\include;F:\RiskV-Vinod\RiskV\lib\imgui</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -121,7 +121,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>F:\RiskV-Vinod\SDL-release-3.4.2\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>F:\RiskV-Vinod\SDL-release-3.4.2\include;F:\RiskV-Vinod\RiskV\lib\imgui</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -132,6 +132,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="APU.cpp" />
+    <ClCompile Include="lib\imgui\backends\imgui_impl_sdl3.cpp" />
+    <ClCompile Include="lib\imgui\backends\imgui_impl_sdlrenderer3.cpp" />
+    <ClCompile Include="lib\imgui\imgui.cpp" />
+    <ClCompile Include="lib\imgui\imgui_demo.cpp" />
+    <ClCompile Include="lib\imgui\imgui_draw.cpp" />
+    <ClCompile Include="lib\imgui\imgui_tables.cpp" />
+    <ClCompile Include="lib\imgui\imgui_widgets.cpp" />
     <ClCompile Include="lib\nes_ntsc\nes_ntsc.c" />
     <ClCompile Include="NES.cpp" />
     <ClCompile Include="NESLogger.cpp" />
@@ -143,6 +150,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="APU.h" />
+    <ClInclude Include="lib\imgui\backends\imgui_impl_sdl3.h" />
+    <ClInclude Include="lib\imgui\backends\imgui_impl_sdlrenderer3.h" />
+    <ClInclude Include="lib\imgui\imgui.h" />
     <ClInclude Include="lib\json\json.hpp" />
     <ClInclude Include="lib\json\json_fwd.hpp" />
     <ClInclude Include="lib\nes_ntsc\nes_ntsc.h" />
@@ -156,6 +166,8 @@
     <ClInclude Include="SDLNTSC.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="lib\imgui-master\backends\sdlgpu3\shader.frag" />
+    <None Include="lib\imgui-master\backends\sdlgpu3\shader.vert" />
     <None Include="lib\nes_ntsc\nes_ntsc.inl" />
     <None Include="lib\nes_ntsc\tests\1.line_phase.nes" />
     <None Include="lib\nes_ntsc\tests\2.frame_phase.nes" />
