@@ -311,7 +311,7 @@ uint8_t APU::read(uint16_t address) {
         if (frameIRQ) data |= 0x40;
         if (dpcm->irqPending) data |= 0x80;
 
-        // ONLY set the flag here. Delete framIrqDelay.
+        
         pendingFrameIRQClear = true;
 
         return data;
