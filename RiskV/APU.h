@@ -93,7 +93,7 @@ struct Pulse {
         if (!lengthCounterHalt && lengthCounter > 0) {
             lengthCounter--;
 
-             printf("[Cycle ???] Pulse 1 Length decremented! Now at: %d\n", lengthCounter);
+          //   printf("[Cycle ???] Pulse 1 Length decremented! Now at: %d\n", lengthCounter);
             
         }
     }

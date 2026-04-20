@@ -1,9 +1,9 @@
 ﻿  SDLNTSC.cpp
 F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(15,17): warning C4804: '<': unsafe use of type 'bool' in operation
 F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(298,15): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
-F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(747,16): warning C4554: '<<': check operator precedence for possible error; use parentheses to clarify precedence
-F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(771,16): warning C4554: '<<': check operator precedence for possible error; use parentheses to clarify precedence
-F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(792,16): warning C4554: '<<': check operator precedence for possible error; use parentheses to clarify precedence
-F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(812,16): warning C4554: '<<': check operator precedence for possible error; use parentheses to clarify precedence
-F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(886,36): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(947,16): warning C4554: '<<': check operator precedence for possible error; use parentheses to clarify precedence
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(971,16): warning C4554: '<<': check operator precedence for possible error; use parentheses to clarify precedence
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(992,16): warning C4554: '<<': check operator precedence for possible error; use parentheses to clarify precedence
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(1012,16): warning C4554: '<<': check operator precedence for possible error; use parentheses to clarify precedence
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(1086,36): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
   RiskV.vcxproj -> F:\RiskV-Vinod\RiskV\x64\Debug\RiskV.exe

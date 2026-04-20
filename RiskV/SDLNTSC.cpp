@@ -392,9 +392,9 @@ void SDLNTSC::draw(int frames){
 
 
 
-    ImGui::SetNextWindowPos(ImVec2(5, 5), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(5, 0), ImGuiCond_FirstUseEver);
   //  ImGui::SetNextWindowSize(ImVec2(10, 10), ImGuiCond_FirstUseEver);
-    ImGui::Begin("CPU Registers");
+    ImGui::Begin("CPU Registers", NULL, regFlags);
     ImGui::Text("Accumulator");
 
     ImVec2 defaultSpacing = ImGui::GetStyle().ItemSpacing;
@@ -447,7 +447,7 @@ void SDLNTSC::draw(int frames){
 
 
 
-    ImGui::Text("P. Counter");
+    ImGui::Text("Prog. Counter");
 
 
     drawList = ImGui::GetWindowDrawList();
@@ -492,17 +492,202 @@ void SDLNTSC::draw(int frames){
         ImGui::Dummy(ImVec2(25, 25));
     }
 
+
+
+
+    ImGui::Text("Stack Pointer");
+
+
+    drawList = ImGui::GetWindowDrawList();
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(alignX);
+    ImGui::Text(" ");
+
+    for (int i = 0; i < 8; i++) {
+        if (nes->regSP & (1 << (7 - i))) {
+            bits[i] = '1';
+        }
+        else {
+            bits[i] = '0';
+        }
+    }
+
+
+
+    for (int i = 0; i < 8; i++) {
+        ImGui::SameLine();
+
+
+        ImVec2 p = ImGui::GetCursorScreenPos();
+
+
+        drawList->AddRectFilled(p, ImVec2(p.x + 20, p.y + 20), IM_COL32(60, 60, 60, 255));
+
+
+        char label[2] = { bits[i], '\0' };
+        ImVec2 textSize = ImGui::CalcTextSize(label);
+
+
+        ImVec2 textPos = ImVec2(
+            p.x + (20.0f - textSize.x) * 0.5f,
+            p.y + (20.0f - textSize.y) * 0.5f + 1.0f
+        );
+
+
+        drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), label);
+
+
+        ImGui::Dummy(ImVec2(25, 25));
+    }
+
+
+    ImGui::Text("Status Register");
+
+
+    drawList = ImGui::GetWindowDrawList();
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(alignX);
+    ImGui::Text(" ");
+
+    for (int i = 0; i < 8; i++) {
+        if (nes->regP & (1 << (7 - i))) {
+            bits[i] = '1';
+        }
+        else {
+            bits[i] = '0';
+        }
+    }
+
+
+
+    for (int i = 0; i < 8; i++) {
+        ImGui::SameLine();
+
+
+        ImVec2 p = ImGui::GetCursorScreenPos();
+
+
+        drawList->AddRectFilled(p, ImVec2(p.x + 20, p.y + 20), IM_COL32(60, 60, 60, 255));
+
+
+        char label[2] = { bits[i], '\0' };
+        ImVec2 textSize = ImGui::CalcTextSize(label);
+
+
+        ImVec2 textPos = ImVec2(
+            p.x + (20.0f - textSize.x) * 0.5f,
+            p.y + (20.0f - textSize.y) * 0.5f + 1.0f
+        );
+
+
+        drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), label);
+
+
+        ImGui::Dummy(ImVec2(25, 25));
+    }
+
+    ImGui::Text("Reg X");
+
+
+    drawList = ImGui::GetWindowDrawList();
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(alignX);
+    ImGui::Text(" ");
+
+    for (int i = 0; i < 8; i++) {
+        if (nes->regX & (1 << (7 - i))) {
+            bits[i] = '1';
+        }
+        else {
+            bits[i] = '0';
+        }
+    }
+
+
+
+    for (int i = 0; i < 8; i++) {
+        ImGui::SameLine();
+
+
+        ImVec2 p = ImGui::GetCursorScreenPos();
+
+
+        drawList->AddRectFilled(p, ImVec2(p.x + 20, p.y + 20), IM_COL32(60, 60, 60, 255));
+
+
+        char label[2] = { bits[i], '\0' };
+        ImVec2 textSize = ImGui::CalcTextSize(label);
+
+
+        ImVec2 textPos = ImVec2(
+            p.x + (20.0f - textSize.x) * 0.5f,
+            p.y + (20.0f - textSize.y) * 0.5f + 1.0f
+        );
+
+
+        drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), label);
+
+
+        ImGui::Dummy(ImVec2(25, 25));
+    }
+
+    ImGui::Text("Reg Y");
+
+
+    drawList = ImGui::GetWindowDrawList();
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(alignX);
+    ImGui::Text(" ");
+
+    for (int i = 0; i < 8; i++) {
+        if (nes->regY & (1 << (7 - i))) {
+            bits[i] = '1';
+        }
+        else {
+            bits[i] = '0';
+        }
+    }
+
+
+
+    for (int i = 0; i < 8; i++) {
+        ImGui::SameLine();
+
+
+        ImVec2 p = ImGui::GetCursorScreenPos();
+
+
+        drawList->AddRectFilled(p, ImVec2(p.x + 20, p.y + 20), IM_COL32(60, 60, 60, 255));
+
+
+        char label[2] = { bits[i], '\0' };
+        ImVec2 textSize = ImGui::CalcTextSize(label);
+
+
+        ImVec2 textPos = ImVec2(
+            p.x + (20.0f - textSize.x) * 0.5f,
+            p.y + (20.0f - textSize.y) * 0.5f + 1.0f
+        );
+
+
+        drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), label);
+
+
+        ImGui::Dummy(ImVec2(25, 25));
+    }
+
+  
+
+
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
     ImGui::PopStyleVar();
 
-    if (ImGui::Button("FPS:")) {
-      
-    }
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(alignX);
-    ImGui::Text(" %i", frames);
     ImGui::End();
+
+
+
+
 
     ImGui::SetNextWindowPos(ImVec2(lineLeft.x + lineThicc, lineLeft.y + lineThicc), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(lineTop.w - (lineThicc * 2), lineLeft.h - lineThicc), ImGuiCond_FirstUseEver);
@@ -604,6 +789,21 @@ void SDLNTSC::draw(int frames){
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
     ImGui::PopStyleVar();
+
+    ImGui::End();
+
+
+    ImGui::SetNextWindowPos(ImVec2(gameRect.x + gameRect.w, 0), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(300, 100), ImGuiCond_FirstUseEver);
+
+    ImGui::Begin("FPS", NULL, regFlags);
+    if (ImGui::Button("FPS:")) {
+
+    }
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(alignX);
+    ImGui::Text(" %i", frames);
+
 
     ImGui::End();
 

@@ -452,8 +452,8 @@ void APU::step(bool isGet) {
 
             if (irqInhibit) {
                 frameIRQ = false;
-                printf("[Cycle %llu] irqInhibit!. frameIRQ = false\n",
-                    nes->currentCycles);
+          //      printf("[Cycle %llu] irqInhibit!. frameIRQ = false\n",
+          //          nes->currentCycles);
             }
 
 

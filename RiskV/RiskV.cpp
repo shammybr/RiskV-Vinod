@@ -42,7 +42,7 @@ int main(){
 
     //RiskVProcessor* processor = new RiskVProcessor(0x10000);
     NES* nes = new NES();
-    NESROM* rom = new NESROM("ROM/AccuracyCoin.nes");
+    NESROM* rom = new NESROM("ROM/mario.nes");
     nes->ppu->videoBuffer = sdl->nesBuffer.data();
 
     nes->loadRom(rom);
