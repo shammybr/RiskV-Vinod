@@ -794,7 +794,7 @@ void SDLNTSC::draw(int frames){
 
 
     ImGui::SetNextWindowPos(ImVec2(gameRect.x + gameRect.w, 0), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(300, 100), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(315, 50), ImGuiCond_FirstUseEver);
 
     ImGui::Begin("FPS", NULL, regFlags);
     if (ImGui::Button("FPS:")) {
@@ -806,6 +806,57 @@ void SDLNTSC::draw(int frames){
 
 
     ImGui::End();
+
+    ImGui::SetNextWindowPos(ImVec2(gameRect.x + gameRect.w, 50), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(315, 500), ImGuiCond_FirstUseEver);
+
+  
+    ImGui::Begin("Histórico", NULL, regFlags);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(-3.0f, defaultSpacing.y));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(80, 80, 80, 255));
+
+    drawList = ImGui::GetWindowDrawList();
+
+    alignX = ImGui::GetCursorPosX();
+    for (int i = 0; i < 20; i++) {
+        
+        ImGui::Text(nes->history[(nes->historyN + i) % 20]);
+    }
+
+
+    
+
+
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar();
+    ImGui::PopStyleVar();
+
+
+    ImGui::End();
+
+    ImGui::SetNextWindowPos(ImVec2(gameRect.x + gameRect.w, 550), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(315, 150), ImGuiCond_FirstUseEver);
+    ImGui::Begin("MICROOP", NULL, regFlags);
+    ImGui::SetCursorPos(ImVec2(57.0f, 10.0f));
+
+    if (nes->logMicroOps) {
+        if (ImGui::Button("Micro Operations", ImVec2(200.0f, 50.0f))) {
+            nes->logMicroOps = false;
+        }
+    }
+    else {
+        if (ImGui::Button("Macro Operations", ImVec2(200.0f, 50.0f))) {
+            nes->logMicroOps = true;
+        }
+    }
+
+    ImGui::Text("Play - F1");
+    ImGui::Text("Frame Mode - F2");
+    ImGui::Text("Next Step - F4");
+
+    ImGui::End();
+
 
     SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
     SDL_RenderClear(renderer);
@@ -1032,7 +1083,7 @@ bool SDLNTSC::poll(uint8_t *controller, std::vector<float>& audioBuffer) {
             bool pressed = (event.type == SDL_EVENT_KEY_DOWN);
             uint8_t bitmask = 0;
 
-   
+            
             switch (event.key.key) {
             case SDLK_J:            bitmask = 0b10000000; break; // A
             case SDLK_K:            bitmask = 0b01000000; break; // B
@@ -1042,7 +1093,12 @@ bool SDLNTSC::poll(uint8_t *controller, std::vector<float>& audioBuffer) {
             case SDLK_S:         bitmask = 0b00000100; break; // Down
             case SDLK_A:         bitmask = 0b00000010; break; // Left
             case SDLK_D:        bitmask = 0b00000001; break; // Right
+
+
+
+
             }
+
 
             if (pressed) {
                 controller[0] |= bitmask;  
@@ -1050,6 +1106,23 @@ bool SDLNTSC::poll(uint8_t *controller, std::vector<float>& audioBuffer) {
             else {
                 controller[0] &= ~bitmask; 
             }
+
+            if (!event.key.repeat) {
+                switch (event.key.key) {
+
+                case SDLK_F1:
+                    if (pressed) { nes->frameMode = false; nes->canStep = true; }
+                    break;
+                case SDLK_F2:
+                    if (pressed) { nes->frameMode = true; nes->canStep = true; }
+                    break;
+                case SDLK_F4:
+                    if (pressed) { nes->canStep = true; }
+                    break;
+                }
+            }
+
+
         }
 
 

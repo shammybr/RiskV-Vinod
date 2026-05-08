@@ -4,6 +4,7 @@
 #include "NESLogger.h"
 #include "PPU.h"
 #include "APU.h"
+#include <queue>
 
 #define INTERNALSTART 0x0000
 #define INTERNALEND 0x07FF
@@ -79,6 +80,7 @@ enum MicroOp {
 	OP_CLEAR_FLAG
 
 };
+
 
 
 class Mapper {
@@ -381,11 +383,76 @@ public:
 	
 	MicroOp mathOP;
 	MicroOp opQueue[20];
+	const char* opStrings[42] = {
+		"NO OP",
+		"FETCH OPCODE",
+		"FETCH LOW_BYTE",
+		"FETCH HIGH_BYTE",
+		"FETCH IMMEDIATE",
+		"FETCH NMI LOW",
+		"FETCH NMI HIGH",
+		"FETCH IRQ LOW",
+		"FETCH IRQ HIGH",
+		"READ MEM",
+		"WRITE MEM",
+		"OP DUMMY READ",
+
+		"ALU ADC",
+		"ALU AND",
+		"ALU ORA",
+		"ALU EOR",
+
+		"ALU CMP",
+		"ALU CPX",
+		"ALU CPY",
+
+		"ALU SBC",
+		"ALU ASL",
+		"ALU LSR",
+		"ALU ROL",
+		"ALU ROR",
+
+		"ALU INC",
+		"ALU DEC",
+		"ALU SLO",
+		"ALU BIT",
+
+		"ADD X LOW",
+		"ADD Y LOW",
+
+		"POINTER READ LOW",
+		"POINTER READ HIGH",
+
+		"PUSH DATA",
+		"PULL DATA",
+		"DUMMY STACK READ",
+
+		"BRANCH CHECK",
+		"BRANCH UPDATE PC",
+		"JUMP CALC",
+
+		"TRANSFER REG",
+
+		"INTERNAL INC_DEC",
+
+		"SET FLAG",
+		"CLEAR FLAG"
+	};
+	static constexpr char HEX_CHARS[] = "0123456789ABCDEF";
+
+	char history[20][50] = { 0 };
+
+	int historyN = 0;
+	bool frameMode = false;
+	bool logMicroOps = false;
+	bool canStep = true;
+
 	int queueSize = 0;
 	int queueIndex = 0;
 	bool isZeroPage = false;
 	bool isBranchInstruction = false;
 	bool isStrobeActive = false;
+
 
 	int RISCStep(NESLogger* logger);
 	void executeALU(MicroOp mathOP);

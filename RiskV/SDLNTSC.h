@@ -109,6 +109,9 @@ public:
 
 	int burst_phase;
 
+	
+
+
 	SDLNTSC(int windowW, int windowH);
 
 	void calculateLines();

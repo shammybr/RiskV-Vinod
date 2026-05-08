@@ -131,7 +131,7 @@ uint8_t NES::logRead(uint16_t address) {
 
 	if (address == 0x4014) {
 		static int dmaCount = 0;
-		printf("DMA Count: %d\n", ++dmaCount);
+	//	printf("DMA Count: %d\n", ++dmaCount);
 	//	apu->debugTest7 = true;
 	}
 
@@ -1649,6 +1649,32 @@ int NES::RISCStep(NESLogger* logger) {
 
 			iDecode(opcode);
 
+
+			if (!logMicroOps) {
+				if (frameMode) {
+					canStep = false;
+				}
+
+				InstructionInfo info = logger->opTable[opcode];
+
+				char* dest = history[historyN];
+
+				strcpy(dest, "&PC: ");
+				dest[5] = HEX_CHARS[(regPC >> 12) & 0xF];
+				dest[6] = HEX_CHARS[(regPC >> 8) & 0xF];
+				dest[7] = HEX_CHARS[(regPC >> 4) & 0xF];
+				dest[8] = HEX_CHARS[regPC & 0xF];
+				dest[9] = ' '; 
+
+				strcpy(&dest[10], "  Inst: ");
+				strcpy(&dest[18], info.name);
+
+
+
+				historyN = (historyN + 1) % 20;
+
+			}
+
 			if (traceCPU) {
 				instructionStartCycle = currentCycles;
 				instructionPC = regPC;
@@ -2078,9 +2104,30 @@ int NES::RISCStep(NESLogger* logger) {
 
 	int returnedCycles = 1 + extraCycles;
 
-	//currentCycles += returnedCycles;
+	if (logMicroOps) {
+		if (frameMode) {
+			canStep = false;
+		}
+
+		char* dest = history[historyN];
 
 
+		strcpy(dest, "&PC: ");
+		dest[5] = HEX_CHARS[(regPC >> 12) & 0xF];
+		dest[6] = HEX_CHARS[(regPC >> 8) & 0xF];
+		dest[7] = HEX_CHARS[(regPC >> 4) & 0xF];
+		dest[8] = HEX_CHARS[regPC & 0xF];
+		dest[9] = ' ';
+
+		strcpy(&dest[10], "  Inst: ");
+		strcpy(&dest[18], opStrings[currentOp]);
+
+
+
+
+		historyN = (historyN + 1) % 20;
+	}
+	
 	return returnedCycles;
 
 

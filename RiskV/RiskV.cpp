@@ -79,15 +79,17 @@ int main(){
     int totalApuCycles = 0;
     bool isCISC = false;
     bool logNext = true;
+
+
     while (nes->on) {
-        
+
         if (!sdl->poll(nes->controller, nes->apu->audioBuffer)) {
             nes->on = false;
             sdl->quit();
         }
 
- 
-           
+
+
         //if(nes->opQueue[nes->queueIndex] == OP_FETCH_OPCODE)
        //     logFile << logger->getLogStep(nes);
 
@@ -96,245 +98,255 @@ int main(){
 
             //   }
         // }
-        if (isCISC) {
 
-            int cpuCycles = nes->step(logger, isCISC);
+        if (nes->canStep) {
+            if (isCISC) {
 
-            totalCpuCycles += cpuCycles;
+                int cpuCycles = nes->step(logger, isCISC);
 
-            bool sleep = false;
-            bool isGet = (totalCpuCycles % 2 == 0);
-            for (int i = 0; i < cpuCycles; i++) {
+                totalCpuCycles += cpuCycles;
+
+                bool sleep = false;
+                bool isGet = (totalCpuCycles % 2 == 0);
+                for (int i = 0; i < cpuCycles; i++) {
+                    nes->apu->step(isGet);
+                    totalApuCycles++;
+
+                }
+
+                for (int i = 0; i < (cpuCycles * 3); i++) {
+                    if (nes->ppu->step(logger)) {
+                        //   sleep = true;
+                        frames++;
+                        sdl->playAudio(nes->apu->audioBuffer);
+                        sdl->draw(fps);
+                        if (nes->wannaSave) {
+                            nes->saveGame();
+                        }
+
+                        // logger->jsonlogStep(nes, totalCpuCycles, totalPpuCycles, totalApuCycles, true);
+                        //  nes->on = false;
+
+                    }
+                    totalPpuCycles++;
+
+                }
+
+
+                auto now = std::chrono::steady_clock::now();
+
+                if (now >= lastFpsTime + std::chrono::seconds(1)) {
+                    std::cout << std::dec << "FPS: " << frames << std::endl;
+                    fps = frames;
+                    frames = 0;
+                    lastFpsTime += std::chrono::seconds(1);
+                }
+
+
+                if (sleep) {
+
+
+                    while (std::chrono::steady_clock::now() < targetTime) {
+                        std::this_thread::yield();
+                    }
+
+
+                    targetTime += frameTarget;
+                }
+
+
+            }
+            else {
+
+
+
+                bool isGet = (nes->currentCycles % 2 == 0);
                 nes->apu->step(isGet);
-                totalApuCycles++;
 
-            }
-
-            for (int i = 0; i < (cpuCycles * 3); i++) {
-                if (nes->ppu->step(logger)) {
-                    //   sleep = true;
-                    frames++;
-                    sdl->playAudio(nes->apu->audioBuffer);
-                    sdl->draw(fps);
-                    if (nes->wannaSave) {
-                        nes->saveGame();
-                    }
-
-                    // logger->jsonlogStep(nes, totalCpuCycles, totalPpuCycles, totalApuCycles, true);
-                    //  nes->on = false;
-
-                }
-                totalPpuCycles++;
-
-            }
-
-
-            auto now = std::chrono::steady_clock::now();
-
-            if (now >= lastFpsTime + std::chrono::seconds(1)) {
-                std::cout << std::dec << "FPS: " << frames << std::endl;
-                fps = frames;
-                frames = 0;
-                lastFpsTime += std::chrono::seconds(1);
-            }
-
-
-            if (sleep) {
-
-
-                while (std::chrono::steady_clock::now() < targetTime) {
-                    std::this_thread::yield();
-                }
-
-
-                targetTime += frameTarget;
-            }
-
-
-        }
-        else {
-
-
-           
-            bool isGet = (nes->currentCycles % 2 == 0);
-            nes->apu->step(isGet);
-
-            if (nes->apu->dpcm->dmaPending && !nes->dpcmActive) {
-                if (nes->traceCPU) {
-                   
-                    printf("[Cycle %llu] dmaPending! |  isWritingMemory: %s \n",
-                            nes->currentCycles, nes->isWritingMemory ? "true" : "false");
-                    
-                    //	traceCPU = true;
-                    //	LOGGO = true;
-                }
-                
-                if (!nes->isWritingMemory) {
-
-                    if (nes->apu->dpcm->enabled || nes->apu->dpcm->implicitAbortFlag) {
-                        nes->dpcmActive = true;
-                        nes->dpcmHaltCycles = isGet ? 3 : 4;
-                    }   
-
-                 
-                    nes->apu->dpcm->dmaPending = false;
-                    nes->apu->dpcm->implicitAbortFlag = false;
-                }
-                else {
-                    if (nes->apu->dpcm->implicitAbortFlag) {
-                        nes->apu->dpcm->implicitAbortFlag = false;
-                    }
-                }
-            }
-
-          
-            if (nes->dpcmActive) {
-                printf("[Cycle %llu] DPCM Halt Cycle: %d/%d | addressBus: %04X | isGet: %s\n",
-                    nes->currentCycles,
-                    nes->dpcmHaltCycles,
-                    (isGet ? 3 : 4),
-                    nes->addressBus,
-                    isGet ? "GET" : "PUT");
-
-                if (nes->dpcmHaltCycles == 1) {
-                    // Sample fetch
-                    printf("[Cycle %llu] DPCM Fetching sample from: %04X\n",
-                        nes->currentCycles, nes->apu->dpcm->currentAddress);
-                }
-
-                if (nes->dpcmHaltCycles == 1) {
+                if (nes->apu->dpcm->dmaPending && !nes->dpcmActive) {
                     if (nes->traceCPU) {
 
-                        printf("[Cycle %llu] Last Halt Cycle! \n",
-                            nes->currentCycles);
+                        printf("[Cycle %llu] dmaPending! |  isWritingMemory: %s \n",
+                            nes->currentCycles, nes->isWritingMemory ? "true" : "false");
 
                         //	traceCPU = true;
                         //	LOGGO = true;
                     }
 
-                    
-                    uint8_t sampleByte = nes->read(nes->apu->dpcm->currentAddress);
-                    nes->apu->dpcm->sampleBuffer = sampleByte; 
-                    nes->apu->dpcm->hasBuffer = true;
+                    if (!nes->isWritingMemory) {
 
-                    if (nes->apu->dpcm->currentAddress == 0xFFFF) {
-                        nes->apu->dpcm->currentAddress = 0x8000;
+                        if (nes->apu->dpcm->enabled || nes->apu->dpcm->implicitAbortFlag) {
+                            nes->dpcmActive = true;
+                            nes->dpcmHaltCycles = isGet ? 3 : 4;
+                        }
+
+
+                        nes->apu->dpcm->dmaPending = false;
+                        nes->apu->dpcm->implicitAbortFlag = false;
                     }
                     else {
-                        nes->apu->dpcm->currentAddress++;
-                    }
-
-                
-                    if (nes->apu->dpcm->currentBytesRemaining > 0) {
-                        nes->apu->dpcm->currentBytesRemaining--;
-                        if (nes->apu->dpcm->currentBytesRemaining == 0) {
-                            if (nes->apu->dpcm->loop) {
-                                nes->apu->dpcm->currentAddress = nes->apu->dpcm->sampleAddress;
-                                nes->apu->dpcm->currentBytesRemaining = nes->apu->dpcm->sampleLength;
-                            }
-                            else if (nes->apu->dpcm->irqEnable) {
-                                nes->apu->dpcm->irqPending = true;
-                            }
+                        if (nes->apu->dpcm->implicitAbortFlag) {
+                            nes->apu->dpcm->implicitAbortFlag = false;
                         }
                     }
-                    nes->dpcmActive = false; 
+                }
+
+
+                if (nes->dpcmActive) {
+                    printf("[Cycle %llu] DPCM Halt Cycle: %d/%d | addressBus: %04X | isGet: %s\n",
+                        nes->currentCycles,
+                        nes->dpcmHaltCycles,
+                        (isGet ? 3 : 4),
+                        nes->addressBus,
+                        isGet ? "GET" : "PUT");
+
+                    if (nes->dpcmHaltCycles == 1) {
+                        // Sample fetch
+                        printf("[Cycle %llu] DPCM Fetching sample from: %04X\n",
+                            nes->currentCycles, nes->apu->dpcm->currentAddress);
+                    }
+
+                    if (nes->dpcmHaltCycles == 1) {
+                        if (nes->traceCPU) {
+
+                            printf("[Cycle %llu] Last Halt Cycle! \n",
+                                nes->currentCycles);
+
+                            //	traceCPU = true;
+                            //	LOGGO = true;
+                        }
+
+
+                        uint8_t sampleByte = nes->read(nes->apu->dpcm->currentAddress);
+                        nes->apu->dpcm->sampleBuffer = sampleByte;
+                        nes->apu->dpcm->hasBuffer = true;
+
+                        if (nes->apu->dpcm->currentAddress == 0xFFFF) {
+                            nes->apu->dpcm->currentAddress = 0x8000;
+                        }
+                        else {
+                            nes->apu->dpcm->currentAddress++;
+                        }
+
+
+                        if (nes->apu->dpcm->currentBytesRemaining > 0) {
+                            nes->apu->dpcm->currentBytesRemaining--;
+                            if (nes->apu->dpcm->currentBytesRemaining == 0) {
+                                if (nes->apu->dpcm->loop) {
+                                    nes->apu->dpcm->currentAddress = nes->apu->dpcm->sampleAddress;
+                                    nes->apu->dpcm->currentBytesRemaining = nes->apu->dpcm->sampleLength;
+                                }
+                                else if (nes->apu->dpcm->irqEnable) {
+                                    nes->apu->dpcm->irqPending = true;
+                                }
+                            }
+                        }
+                        nes->dpcmActive = false;
+                    }
+                    else {
+
+
+                        nes->read(nes->addressBus);
+
+
+                    }
+                    nes->dpcmHaltCycles--;
+                }
+
+                else if (nes->dmaWaiting) {
+
+                    if (nes->oamDmaState == 0) {
+                        nes->oamDmaState = isGet ? 1 : 2;
+
+                    }
+                    else if (nes->oamDmaState == 1) {
+                        nes->oamDmaState = 2;
+
+                    }
+                    else if (nes->oamDmaState == 2) {
+                        if (isGet) {
+                            nes->dmaData = nes->read((nes->dmaPage << 8) | nes->dmaAddress);
+                            nes->oamDmaState = 3;
+
+                        }
+
+                    }
+                    else if (nes->oamDmaState == 3) {
+                        if (!isGet) {
+                            nes->ppu->oam[nes->ppu->oamAddress++] = nes->dmaData;
+                            nes->dmaAddress++;
+                            if (nes->dmaAddress == 0) {
+                                nes->dmaWaiting = false;
+                            }
+                            else {
+                                nes->oamDmaState = 2;
+                            }
+
+
+                        }
+
+                    }
                 }
                 else {
 
-           
-                       nes->read(nes->addressBus);
-                    
-              
-                }
-                nes->dpcmHaltCycles--;
-            }
+                    nes->RISCStep(logger);
 
-            else if (nes->dmaWaiting) {
+                }
 
-                if (nes->oamDmaState == 0) {
-                    nes->oamDmaState = isGet ? 1 : 2;
-                 
-                }
-                else if (nes->oamDmaState == 1) {
-                    nes->oamDmaState = 2;
-               
-                }
-                else if (nes->oamDmaState == 2) {
-                    if (isGet) {
-                        nes->dmaData = nes->read((nes->dmaPage << 8) | nes->dmaAddress);
-                        nes->oamDmaState = 3;
+                for (int i = 0; i < 3; i++) {
+                    if (nes->ppu->step(logger)) {
+                        frames++;
+                        sdl->playAudio(nes->apu->audioBuffer);
+                        sdl->draw(fps);
+                        if (nes->wannaSave) nes->saveGame();
+
+                       
 
                     }
-   
+                    totalPpuCycles++;
                 }
-                else if (nes->oamDmaState == 3) {
-                    if (!isGet) { 
-                        nes->ppu->oam[nes->ppu->oamAddress++] = nes->dmaData;
-                        nes->dmaAddress++;
-                        if (nes->dmaAddress == 0) {
-                            nes->dmaWaiting = false;
-                        }
-                        else {
-                            nes->oamDmaState = 2;
-                        }
 
-                    
-                    }
 
+                nes->currentCycles++;
+
+
+                auto now = std::chrono::steady_clock::now();
+
+                if (now >= lastFpsTime + std::chrono::seconds(1)) {
+                    //         std::cout << std::dec << "FPS: " << frames << std::endl;
+                    fps = frames;
+                    frames = 0;
+                    lastFpsTime += std::chrono::seconds(1);
                 }
+
+
+
+                /*     if (nes->apu->debugTest7) {
+                             printf("CPU:%llu | Parity:%s | DMA:%d | PC:%04X | frameIRQ:%d | Delay:%d\n",
+                                 nes->currentCycles,
+                                 (nes->currentCycles % 2 == 0) ? "GET" : "PUT",
+                                 nes->dmaWaiting,
+                                 nes->regPC,
+                                 nes->apu->frameIRQ,
+                                 nes->apu->framIrqDelay);
+                     }*/
+
+
+
+                totalCpuCycles++;
+                totalApuCycles++;
+
+
+
             }
-            else {
-
-                nes->RISCStep(logger);
-                
-            }
-
-            for (int i = 0; i < 3; i++) {
-                if (nes->ppu->step(logger)) {
-                    frames++;
-                    sdl->playAudio(nes->apu->audioBuffer);
-                    sdl->draw(fps);
-                    if (nes->wannaSave) nes->saveGame();
-
-               
-                }
-                totalPpuCycles++;
-            }
-
-        
-            nes->currentCycles++;
-
-
-            auto now = std::chrono::steady_clock::now();
-
-            if (now >= lastFpsTime + std::chrono::seconds(1)) {
-       //         std::cout << std::dec << "FPS: " << frames << std::endl;
-                fps = frames;
-                frames = 0;
-                lastFpsTime += std::chrono::seconds(1);
-            }
-
-
-
-            /*     if (nes->apu->debugTest7) {
-                         printf("CPU:%llu | Parity:%s | DMA:%d | PC:%04X | frameIRQ:%d | Delay:%d\n",
-                             nes->currentCycles,
-                             (nes->currentCycles % 2 == 0) ? "GET" : "PUT",
-                             nes->dmaWaiting,
-                             nes->regPC,
-                             nes->apu->frameIRQ,
-                             nes->apu->framIrqDelay);
-                 }*/
-
-
-
-
-            totalCpuCycles++;
-            totalApuCycles++;
-
-           
 
         }
+        else {
+            if(nes->on)
+            sdl->draw(fps);
+        }
+
+ 
 
     }
 
