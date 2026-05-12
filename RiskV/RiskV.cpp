@@ -31,6 +31,8 @@ int main(){
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io; 
+
+
     io.IniFilename = NULL;
 
     const char* fontPath = "lib/imgui/misc/fonts/Roboto-Medium.ttf";
@@ -64,7 +66,7 @@ int main(){
       //  std::cout << "Error: falha ao criar log file!" << std::endl;
        // return -1;
    // }
-    
+   
 
     const std::chrono::nanoseconds frameTarget(16639260);
    

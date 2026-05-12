@@ -440,7 +440,7 @@ public:
 	};
 	static constexpr char HEX_CHARS[] = "0123456789ABCDEF";
 
-	char history[20][50] = { 0 };
+	char history[9][50] = { 0 };
 
 	int historyN = 0;
 	bool frameMode = false;

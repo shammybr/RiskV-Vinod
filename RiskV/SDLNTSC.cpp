@@ -21,15 +21,25 @@ SDLNTSC::SDLNTSC(int windowW, int windowH) : nesBuffer(NES_WIDTH* NES_HEIGHT, 0)
 
         window = SDL_CreateWindow("CAVALO NES", windowW, windowH, SDL_WINDOW_RESIZABLE);
         renderer = SDL_CreateRenderer(window, NULL);
-                
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        mem_edit.OptShowDataPreview = true;
+        mem_edit.ReadOnly = false;
+
         gameRect = { (float)windowW / 4 , 0.0f, 640.0f, 480.0f };
-        cpuRect = { 0.0f , 480.0f / 2 , 640.0f / 2, 480.0f };
+        cpuRect = { 0.0f , (480.0f / 2) + 30 , 640.0f / 2, 480.0f };
         regFlags = 0;
         regFlags |= ImGuiWindowFlags_NoTitleBar;   
         regFlags |= ImGuiWindowFlags_NoResize;     
         regFlags |= ImGuiWindowFlags_NoMove;       
         regFlags |= ImGuiWindowFlags_NoCollapse;   
         regFlags |= ImGuiWindowFlags_NoScrollbar;
+
+        regFlagsScroll = 0;
+        regFlagsScroll |= ImGuiWindowFlags_NoTitleBar;
+        regFlagsScroll |= ImGuiWindowFlags_NoResize;
+        regFlagsScroll |= ImGuiWindowFlags_NoMove;
+        regFlagsScroll |= ImGuiWindowFlags_NoCollapse;
+
 
         calculateLines();
      
@@ -84,11 +94,11 @@ SDLNTSC::SDLNTSC(int windowW, int windowH) : nesBuffer(NES_WIDTH* NES_HEIGHT, 0)
 
 void SDLNTSC::calculateLines() {
 
-    lineLeft = { cpuRect.x + 25.0f , cpuRect.y , lineThicc, 100.0f };
-    lineRight = { cpuRect.x + cpuRect.w - 25.0f , cpuRect.y , lineThicc, 100.0f };
+    lineLeft = { cpuRect.x + 20.0f , cpuRect.y , lineThicc, 100.0f };
+    lineRight = { cpuRect.x + cpuRect.w - 30.0f , cpuRect.y , lineThicc, 100.0f };
 
-    lineTop = { cpuRect.x + 25.0f , cpuRect.y , cpuRect.w - 50.0f + lineThicc ,  lineThicc };
-    lineBottom = { cpuRect.x + 25.0f , cpuRect.y + 100.0f, cpuRect.w - 50.0f + lineThicc,  lineThicc };
+    lineTop = { cpuRect.x + 20.0f , cpuRect.y , cpuRect.w - 50.0f + lineThicc ,  lineThicc };
+    lineBottom = { cpuRect.x + 20.0f , cpuRect.y + 100.0f, cpuRect.w - 50.0f + lineThicc,  lineThicc };
 
     float startX = lineBottom.x + lineThicc;
     float endX = (lineBottom.x + lineBottom.w) - (lineThicc * 2.0f);
@@ -384,16 +394,17 @@ void SDLNTSC::quit(){
 
 void SDLNTSC::draw(int frames){
 
-
+   
     ImGui_ImplSDLRenderer3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
 
+
+
     ImGui::NewFrame();
-
-
+    
 
     ImGui::SetNextWindowPos(ImVec2(5, 0), ImGuiCond_FirstUseEver);
-  //  ImGui::SetNextWindowSize(ImVec2(10, 10), ImGuiCond_FirstUseEver);
+    //ImGui::SetNextWindowSize(ImVec2(10, 10), ImGuiCond_FirstUseEver);
     ImGui::Begin("CPU Registers", NULL, regFlags);
     ImGui::Text("Accumulator");
 
@@ -455,18 +466,24 @@ void SDLNTSC::draw(int frames){
     ImGui::SetCursorPosX(alignX);
     ImGui::Text(" ");
 
-    for (int i = 0; i < 8; i++) {
-        if (nes->regPC & (1 << (7 - i))) {
-            bits[i] = '1';
+    char bits16[16];
+
+    for (int i = 0; i < 16; i++) {
+        if (nes->regPC & (1 << (15 - i))) {
+            bits16[i] = '1';
         }
         else {
-            bits[i] = '0';
+            bits16[i] = '0';
         }
     }
 
 
 
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 16; i++) {
+        if (i == 8) {
+            ImGui::SetCursorPosX(alignX);
+            ImGui::Text(" ");
+        }
         ImGui::SameLine();
 
 
@@ -476,7 +493,7 @@ void SDLNTSC::draw(int frames){
         drawList->AddRectFilled(p, ImVec2(p.x + 20, p.y + 20), IM_COL32(60, 60, 60, 255));
 
 
-        char label[2] = { bits[i], '\0'};
+        char label[2] = { bits16[i], '\0'};
         ImVec2 textSize = ImGui::CalcTextSize(label);
 
 
@@ -687,8 +704,6 @@ void SDLNTSC::draw(int frames){
 
 
 
-
-
     ImGui::SetNextWindowPos(ImVec2(lineLeft.x + lineThicc, lineLeft.y + lineThicc), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(lineTop.w - (lineThicc * 2), lineLeft.h - lineThicc), ImGuiCond_FirstUseEver);
     ImGui::Begin("Addr & Data", NULL, regFlags);
@@ -807,9 +822,9 @@ void SDLNTSC::draw(int frames){
 
     ImGui::End();
 
-    ImGui::SetNextWindowPos(ImVec2(gameRect.x + gameRect.w, 50), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(315, 500), ImGuiCond_FirstUseEver);
 
+    ImGui::SetNextWindowPos(ImVec2(gameRect.x, gameRect.h), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2((gameRect.w / 2), 240), ImGuiCond_FirstUseEver);
   
     ImGui::Begin("Histórico", NULL, regFlags);
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(-3.0f, defaultSpacing.y));
@@ -819,9 +834,9 @@ void SDLNTSC::draw(int frames){
     drawList = ImGui::GetWindowDrawList();
 
     alignX = ImGui::GetCursorPosX();
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 9; i++) {
         
-        ImGui::Text(nes->history[(nes->historyN + i) % 20]);
+        ImGui::Text(nes->history[(nes->historyN + i) % 9]);
     }
 
 
@@ -835,8 +850,8 @@ void SDLNTSC::draw(int frames){
 
     ImGui::End();
 
-    ImGui::SetNextWindowPos(ImVec2(gameRect.x + gameRect.w, 550), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(315, 150), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(gameRect.x + (gameRect.w / 2), gameRect.h), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(gameRect.w / 2, 240), ImGuiCond_FirstUseEver);
     ImGui::Begin("MICROOP", NULL, regFlags);
     ImGui::SetCursorPos(ImVec2(57.0f, 10.0f));
 
@@ -857,6 +872,55 @@ void SDLNTSC::draw(int frames){
 
     ImGui::End();
 
+    ImGui::SetNextWindowPos(ImVec2(gameRect.x + gameRect.w, 50), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(315, 500), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Memory", NULL, regFlagsScroll);
+
+    if (ImGui::BeginTabBar("MemoryTabs")) {
+
+        drawList = ImGui::GetWindowDrawList();
+
+        if (ImGui::BeginTabItem("Zero Page")) {
+            ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Quick RAM ($0000 - $00FF)");
+            mem_edit.Cols = 4;
+
+            mem_edit.DrawContents(nes->memory , 256, 0);
+
+            ImGui::EndTabItem();
+        }
+
+
+        if (ImGui::BeginTabItem("Stack")) {
+            ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Memory Stack ($0100 - $01FF)");
+            mem_edit.Cols = 4;
+
+            mem_edit.DrawContents(nes->memory + 0x0100, 256, 0x0100);
+
+            ImGui::EndTabItem();
+        }
+
+
+        if (ImGui::BeginTabItem("General RAM")) {
+
+            ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Internal RAM ($0200 - $07FF)");
+
+
+            mem_edit.Cols = 4;
+
+            mem_edit.DrawContents(nes->memory + 0x0100, 256, 0x0100);
+
+            ImGui::EndTabItem();
+        }
+
+
+        ImGui::EndTabBar();
+    }
+
+
+
+    ImGui::End();
+
+  
 
     SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
     SDL_RenderClear(renderer);
@@ -871,7 +935,7 @@ void SDLNTSC::draw(int frames){
 
 
 
-
+  
     DrawGame();
 
     DrawCPU();
@@ -901,18 +965,41 @@ void SDLNTSC::DrawGame() {
         NTSC_OUT_WIDTH * sizeof(uint16_t));
 
     SDL_UpdateTexture(texture, NULL, ntscOutput.data(), NTSC_OUT_WIDTH * sizeof(uint16_t));
-    SDL_RenderClear(renderer);
-    SDL_RenderTexture(renderer, texture, NULL, &gameRect);
+
+    ImGui::SetNextWindowPos(ImVec2(gameRect.x, 0), ImGuiCond_FirstUseEver);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::Begin("Display", NULL, regFlags);
+
+    ImVec2 pos = ImGui::GetCursorScreenPos();
+
+  
+    float scale = 2.0f;
 
 
-    //scanlines
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 60);
+    float finalHeight = 240.0f * scale;
 
-    for (int y = 0; y < gameRect.h; y += 2) {
-        SDL_RenderLine(renderer, gameRect.x, gameRect.y + (float)y, gameRect.x + gameRect.w, gameRect.y + (float)y);
+
+    float finalWidth = finalHeight * (4.0f / 3.0f);
+
+    ImVec2 size = ImVec2(finalWidth, finalHeight);
+
+    ImGui::Image((ImTextureID)texture, size);
+
+
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImU32 scanlineColor = IM_COL32(0, 0, 0, 60);
+
+
+    for (int y = 0; y < size.y; y += 2) {
+        drawList->AddLine(
+            ImVec2(pos.x, pos.y + y),          
+            ImVec2(pos.x + size.x, pos.y + y), 
+            scanlineColor
+        );
     }
 
+    ImGui::End();
+    ImGui::PopStyleVar(); 
 
 
 }
@@ -1020,7 +1107,7 @@ void SDLNTSC::DrawCPU() {
 
 
             if (nes->addressBus & (1 << i - 3))
-                SDL_RenderFillRect(renderer, &prox->wire);
+            SDL_RenderFillRect(renderer, &prox->wire);
 
             prox = prox->prox;
         }
@@ -1076,6 +1163,7 @@ void SDLNTSC::DrawCPU() {
 
 bool SDLNTSC::poll(uint8_t *controller, std::vector<float>& audioBuffer) {
     while (SDL_PollEvent(&event)) {
+        SDL_ConvertEventToRenderCoordinates(renderer, &event);
         ImGui_ImplSDL3_ProcessEvent(&event);
 
 

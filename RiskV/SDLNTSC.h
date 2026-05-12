@@ -4,7 +4,16 @@
 #include <vector>  
 #include <cstdint>
 #include "imgui.h"
+#include "imgui_memory_editor.h"
 
+enum EMemoryWindow {
+	STACK,
+	ZEROPAGE,
+	GENERAL,
+	IO
+
+
+};
 struct NoWire {
 	SDL_FRect wire;
 	NoWire* prox = NULL;
@@ -83,6 +92,8 @@ public:
 	SWire* cpuBotWires[20];
 
 	ImGuiWindowFlags regFlags;
+	ImGuiWindowFlags regFlagsScroll;
+	MemoryEditor mem_edit;
 	SDL_FRect lineLeft;
 	SDL_FRect lineRight;
 

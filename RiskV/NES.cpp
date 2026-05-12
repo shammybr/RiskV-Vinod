@@ -1669,9 +1669,36 @@ int NES::RISCStep(NESLogger* logger) {
 				strcpy(&dest[10], "  Inst: ");
 				strcpy(&dest[18], info.name);
 
+				
+				int offset = 18;
+				while (dest[offset] != '\0') {
+					offset++;
+				}
+
+				dest[offset++] = ' '; 
 
 
-				historyN = (historyN + 1) % 20;
+				if (info.bytes == 2) {
+				
+					uint8_t operand = read(regPC);
+					dest[offset++] = '$';
+					dest[offset++] = HEX_CHARS[(operand >> 4) & 0xF];
+					dest[offset++] = HEX_CHARS[operand & 0xF];
+				}
+				else if (info.bytes == 3) {
+				
+					uint8_t lowByte = read(regPC);
+					uint8_t highByte = read(regPC + 1);
+					dest[offset++] = '$';
+					dest[offset++] = HEX_CHARS[(highByte >> 4) & 0xF];
+					dest[offset++] = HEX_CHARS[highByte & 0xF];
+					dest[offset++] = HEX_CHARS[(lowByte >> 4) & 0xF];
+					dest[offset++] = HEX_CHARS[lowByte & 0xF];
+				}
+
+				dest[offset] = '\0'; 
+
+				historyN = (historyN + 1) % 9;
 
 			}
 
@@ -2125,7 +2152,7 @@ int NES::RISCStep(NESLogger* logger) {
 
 
 
-		historyN = (historyN + 1) % 20;
+		historyN = (historyN + 1) % 9;
 	}
 	
 	return returnedCycles;

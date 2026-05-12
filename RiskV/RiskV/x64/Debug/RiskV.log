@@ -1,14 +1,10 @@
-﻿  NES.cpp
-F:\RiskV-Vinod\RiskV\NES.cpp(236,10): warning C4477: 'printf' : format string '%llu' requires an argument of type 'unsigned __int64', but variadic argument 1 has type 'int'
-      F:\RiskV-Vinod\RiskV\NES.cpp(236,10):
-      consider using '%u' in the format string
-      F:\RiskV-Vinod\RiskV\NES.cpp(236,10):
-      consider using '%I32u' in the format string
-  
-F:\RiskV-Vinod\RiskV\NES.cpp(236,10): warning C4473: 'printf' : not enough arguments passed for format string
-      F:\RiskV-Vinod\RiskV\NES.cpp(236,10):
-      placeholders and their parameters expect 2 variadic arguments, but 1 were provided
-      F:\RiskV-Vinod\RiskV\NES.cpp(236,10):
-      the missing variadic argument 2 is required by format string '%02X'
-  
+﻿  SDLNTSC.cpp
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(15,17): warning C4804: '<': unsafe use of type 'bool' in operation
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(308,15): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(829,18): warning C4566: character represented by universal-character-name '\u00F3' cannot be represented in the current code page (932)
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(1085,16): warning C4554: '<<': check operator precedence for possible error; use parentheses to clarify precedence
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(1109,16): warning C4554: '<<': check operator precedence for possible error; use parentheses to clarify precedence
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(1130,16): warning C4554: '<<': check operator precedence for possible error; use parentheses to clarify precedence
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(1150,16): warning C4554: '<<': check operator precedence for possible error; use parentheses to clarify precedence
+F:\RiskV-Vinod\RiskV\SDLNTSC.cpp(1247,36): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
   RiskV.vcxproj -> F:\RiskV-Vinod\RiskV\x64\Debug\RiskV.exe
