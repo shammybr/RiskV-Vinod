@@ -809,15 +809,11 @@ void SDLNTSC::draw(int frames){
 
 
     ImGui::SetNextWindowPos(ImVec2(gameRect.x + gameRect.w, 0), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(315, 50), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(315, 30), ImGuiCond_FirstUseEver);
 
     ImGui::Begin("FPS", NULL, regFlags);
-    if (ImGui::Button("FPS:")) {
+    ImGui::Text("FPS: %i", frames);
 
-    }
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(alignX);
-    ImGui::Text(" %i", frames);
 
 
     ImGui::End();
@@ -868,11 +864,12 @@ void SDLNTSC::draw(int frames){
 
     ImGui::Text("Play - F1");
     ImGui::Text("Frame Mode - F2");
-    ImGui::Text("Next Step - F4");
+    ImGui::Text("Next Step - F3");
+    ImGui::Text("Next Frame - F4");
 
     ImGui::End();
 
-    ImGui::SetNextWindowPos(ImVec2(gameRect.x + gameRect.w, 50), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(gameRect.x + gameRect.w, 30), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(315, 500), ImGuiCond_FirstUseEver);
     ImGui::Begin("Memory", NULL, regFlagsScroll);
 
@@ -907,7 +904,7 @@ void SDLNTSC::draw(int frames){
 
             mem_edit.Cols = 4;
 
-            mem_edit.DrawContents(nes->memory + 0x0100, 256, 0x0100);
+            mem_edit.DrawContents(nes->memory + 0x0200, 1536, 0x0200);
 
             ImGui::EndTabItem();
         }
@@ -917,7 +914,7 @@ void SDLNTSC::draw(int frames){
     }
 
 
-
+   // ImGui::ShowMetricsWindow();
     ImGui::End();
 
   
@@ -1182,7 +1179,9 @@ bool SDLNTSC::poll(uint8_t *controller, std::vector<float>& audioBuffer) {
             case SDLK_A:         bitmask = 0b00000010; break; // Left
             case SDLK_D:        bitmask = 0b00000001; break; // Right
 
-
+            case SDLK_F5:
+                if (pressed) { if (nes->frameMode) { ppu->pixelMode = true; };  nes->canStep = true; }
+                break;
 
 
             }
@@ -1202,11 +1201,15 @@ bool SDLNTSC::poll(uint8_t *controller, std::vector<float>& audioBuffer) {
                     if (pressed) { nes->frameMode = false; nes->canStep = true; }
                     break;
                 case SDLK_F2:
-                    if (pressed) { nes->frameMode = true; nes->canStep = true; }
+                    if (pressed) { nes->frameMode = true ;  ppu->pixelMode = false; nes->canStep = true; }
+                    break;
+                case SDLK_F3:
+                    if (pressed) { nes->stepWholeFrame = false;  ppu->pixelMode = false; nes->canStep = true; }
                     break;
                 case SDLK_F4:
-                    if (pressed) { nes->canStep = true; }
+                    if (pressed) { nes->stepWholeFrame = true;  ppu->pixelMode = false; nes->canStep = true; }
                     break;
+
                 }
             }
 

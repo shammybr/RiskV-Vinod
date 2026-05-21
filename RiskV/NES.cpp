@@ -65,7 +65,7 @@ void NES::reset() {
 	regPC = 0x000;
 
 
-
+    
 	//le little indiaaaaaaaaaaan lelelelele
 	uint8_t lByte = read(0xFFFC);
 	uint8_t hByte = read(0xFFFD);
@@ -1651,9 +1651,6 @@ int NES::RISCStep(NESLogger* logger) {
 
 
 			if (!logMicroOps) {
-				if (frameMode) {
-					canStep = false;
-				}
 
 				InstructionInfo info = logger->opTable[opcode];
 
@@ -2132,9 +2129,6 @@ int NES::RISCStep(NESLogger* logger) {
 	int returnedCycles = 1 + extraCycles;
 
 	if (logMicroOps) {
-		if (frameMode) {
-			canStep = false;
-		}
 
 		char* dest = history[historyN];
 

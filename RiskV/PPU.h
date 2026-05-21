@@ -4,6 +4,14 @@
 class NES;
 class NESLogger;
 enum EMirrorMode;
+struct ScanlineSprite {
+	uint8_t y;
+	uint8_t tile;
+	uint8_t attr;
+	uint8_t x;
+	uint8_t originalIndex; 
+};
+
 
 class PPU {
 public:
@@ -43,7 +51,7 @@ public:
 
 
 	bool oddFrame = false;
-
+	bool pixelMode = false;
 	int16_t scanline = 0; //  0 - 261
 	uint16_t cycle = 0;    //  0 - 340
 
@@ -57,7 +65,8 @@ public:
 	uint8_t* videoBuffer = nullptr;
 
 
-
+	ScanlineSprite scanlineSprites[8];
+	int spriteCount = 0;
 
 	// for 0x2007
 	uint8_t ppuDataBuffer = 0x00;
@@ -84,4 +93,6 @@ public:
 	void cpuWrite(uint16_t registerN, uint8_t data);
 	void drawPixel();
 
+
+	void evaluateSprites();
 };

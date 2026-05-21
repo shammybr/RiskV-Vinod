@@ -363,42 +363,37 @@ void PPU::drawPixel(){
 
 	if (mask & 0b00010000) {
 		//64 sprites
-		for (int i = 0; i < 64; i++) {
+		for (int i = 0; i < spriteCount; i++) {
 
-
-			uint8_t sY = oam[i * 4];
-			uint8_t sTile = oam[i * 4 + 1];
-			uint8_t sAttr = oam[i * 4 + 2];
-			uint8_t sX = oam[i * 4 + 3];
+			uint8_t sY = scanlineSprites[i].y;
+			uint8_t sTile = scanlineSprites[i].tile;
+			uint8_t sAttr = scanlineSprites[i].attr;
+			uint8_t sX = scanlineSprites[i].x;
+			uint8_t originalIndex = scanlineSprites[i].originalIndex;
 
 			int diffX = currentX - sX;
-			int diffY = currentY - (sY + 1); // sprites are delayed by 1 scanline
+			int diffY = currentY - (sY + 1);
 
 			bool is8x16 = (ctrl & 0b00100000) > 0;
 			int spriteHeight = is8x16 ? 16 : 8;
 
-			if (diffX >= 0 && diffX < 8 && diffY >= 0 && diffY < spriteHeight) {
+			if (diffX >= 0 && diffX < 8) {
 
-				
-				if (sAttr & 0b10000000) diffY = (spriteHeight - 1) - diffY; 
-				if (sAttr & 0b01000000) diffX = 7 - diffX; 
+				if (sAttr & 0b10000000) diffY = (spriteHeight - 1) - diffY;
+				if (sAttr & 0b01000000) diffX = 7 - diffX;
 
 				uint16_t spriteTable = 0;
 				uint8_t tileIndex = sTile;
 
 				if (is8x16) {
-					
 					spriteTable = (sTile & 0x01) ? 0x1000 : 0x0000;
-					tileIndex = sTile & 0xFE; 
-
-					
+					tileIndex = sTile & 0xFE;
 					if (diffY >= 8) {
 						tileIndex++;
 						diffY -= 8;
 					}
 				}
 				else {
-					//  8x8 
 					spriteTable = (ctrl & 0b00001000) ? 0x1000 : 0x0000;
 				}
 
@@ -414,18 +409,15 @@ void PPU::drawPixel(){
 
 				if (pixel != 0) {
 					fgPixel = pixel;
-					fgPalette = (sAttr & 0b00000011) + 4; // sprites use palettes 4, 5, 6, and 7
-					fgPriority = (sAttr & 0b00100000) == 0; // 0 = front 
+					fgPalette = (sAttr & 0b00000011) + 4;
+					fgPriority = (sAttr & 0b00100000) == 0;
 
-					// sprite 0 hit collision
-					if (i == 0 && bgPixel != 0) {
-						
+				
+					if (originalIndex == 0 && bgPixel != 0) {
 						if (currentX != 255 && (currentX >= 8 || (mask & 0b00000110) == 0b00000110)) {
-							status |= 0b01000000; 
+							status |= 0b01000000;
 						}
 					}
-
-
 					break;
 				}
 			}
@@ -480,9 +472,46 @@ void PPU::drawPixel(){
 	if (currentX >= 0 && currentX < 256 && currentY >= 0 && currentY < 240 && videoBuffer != nullptr) {
 		uint8_t ntsc_pixel = (finalPixelColor & 0x3F) | (mask & 0xE0);
 		videoBuffer[currentY * 256 + currentX] = ntsc_pixel;
+
+		if (pixelMode && nes->frameMode) {
+			if (currentX + 1 < 256) videoBuffer[currentY * 256 + (currentX + 1)] = 0x30;
+			if (currentX + 2 < 256) videoBuffer[currentY * 256 + (currentX + 2)] = 0x30;
+			if (currentX + 3 < 256) videoBuffer[currentY * 256 + (currentX + 3)] = 0x30;
+		}
 	}
 
 
+}
+
+void PPU::evaluateSprites(){
+	spriteCount = 0;
+
+	bool is8x16 = (ctrl & 0b00100000) > 0;
+	int spriteHeight = is8x16 ? 16 : 8;
+
+	for (int i = 0; i < 64; i++) {
+		uint8_t sY = oam[i * 4];
+
+		
+		int diffY = scanline - (sY + 1);
+
+		if (diffY >= 0 && diffY < spriteHeight) {
+			if (spriteCount < 8) {
+				
+				scanlineSprites[spriteCount].y = sY;
+				scanlineSprites[spriteCount].tile = oam[i * 4 + 1];
+				scanlineSprites[spriteCount].attr = oam[i * 4 + 2];
+				scanlineSprites[spriteCount].x = oam[i * 4 + 3];
+				scanlineSprites[spriteCount].originalIndex = i; 
+				spriteCount++;
+			}
+			else {
+
+				status |= 0b00100000;
+				break; 
+			}
+		}
+	}
 }
 
 uint16_t PPU::mirrorAddress(uint16_t address, EMirrorMode mirrorMode){
@@ -600,8 +629,17 @@ uint8_t PPU::step(NESLogger* logger) {
 
 
 
-		if (scanline >= 0 && scanline < 240 && cycle >= 1 && cycle <= 256) {
-			drawPixel();
+		if (scanline >= 0 && scanline < 240) {
+			if (cycle == 0) {
+				evaluateSprites();
+			}
+
+			if (cycle >= 1 && cycle <= 256) {
+				drawPixel();
+				if (nes->frameMode && pixelMode) {
+					nes->canStep = false;
+				}
+			}
 		}
 	}
 
@@ -611,6 +649,7 @@ uint8_t PPU::step(NESLogger* logger) {
 		if (ctrl & 0b10000000) {
 			nmiSignal = true;
 		}
+	
 	}
 
 

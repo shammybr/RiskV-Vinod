@@ -30,7 +30,7 @@ int main(){
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io; 
+    ImGuiIO& io = ImGui::GetIO(); 
 
 
     io.IniFilename = NULL;
@@ -295,6 +295,10 @@ int main(){
 
                 }
 
+                if (nes->frameMode && !nes->stepWholeFrame && !nes->ppu->pixelMode) {
+                    nes->canStep = false;
+                }
+
                 for (int i = 0; i < 3; i++) {
                     if (nes->ppu->step(logger)) {
                         frames++;
@@ -302,7 +306,9 @@ int main(){
                         sdl->draw(fps);
                         if (nes->wannaSave) nes->saveGame();
 
-                       
+                        if (nes->frameMode && nes->stepWholeFrame && !nes->ppu->pixelMode) {
+                            nes->canStep = false;
+                        }
 
                     }
                     totalPpuCycles++;

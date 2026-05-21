@@ -443,9 +443,10 @@ public:
 	char history[9][50] = { 0 };
 
 	int historyN = 0;
-	bool frameMode = false;
+	int frameMode = 0;
 	bool logMicroOps = false;
 	bool canStep = true;
+	bool stepWholeFrame = false;
 
 	int queueSize = 0;
 	int queueIndex = 0;
