@@ -203,7 +203,9 @@ public:
 public:
 	NES();
 
-	void loadRom(NESROM* rom);
+	void loadRom(const char* romName);
+	void makeRom(const char* filepath, std::vector<uint8_t> customCode);
+
 
 	void unloadRom();
 

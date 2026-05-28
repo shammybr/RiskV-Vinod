@@ -44,17 +44,17 @@ int main(){
 
     //RiskVProcessor* processor = new RiskVProcessor(0x10000);
     NES* nes = new NES();
-    NESROM* rom = new NESROM("ROM/mario.nes");
+  //  NESROM* rom = new NESROM("ROM/mario.nes");
     nes->ppu->videoBuffer = sdl->nesBuffer.data();
 
-    nes->loadRom(rom);
+    nes->loadRom("ROM/mario.nes");
     sdl->setNes(nes);
   //  nes->reset();
 
    
 
-    std::cout << "vPRGMemory size: " << rom->vPRGMemory.size() << "!" << std::endl;
-    std::cout << "vCHRMemory size: " << rom->vCHRMemory.size() << "!" << std::endl;
+ //   std::cout << "vPRGMemory size: " << rom->vPRGMemory.size() << "!" << std::endl;
+   // std::cout << "vCHRMemory size: " << rom->vCHRMemory.size() << "!" << std::endl;
     
     
     //nestest
@@ -295,7 +295,8 @@ int main(){
 
                 }
 
-                if (nes->frameMode && !nes->stepWholeFrame && !nes->ppu->pixelMode) {
+                if (nes->frameMode && !nes->stepWholeFrame && !nes->ppu->pixelMode && nes->logMicroOps) {
+                    
                     nes->canStep = false;
                 }
 

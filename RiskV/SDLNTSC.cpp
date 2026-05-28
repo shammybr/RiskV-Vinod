@@ -7,6 +7,8 @@
 #include "backends/imgui_impl_sdl3.h"
 #include "backends/imgui_impl_sdlrenderer3.h"
 #include "NES.h"
+#include <format>
+#include "misc/cpp/imgui_stdlib.h"
 
 SDLNTSC::SDLNTSC(int windowW, int windowH) : nesBuffer(NES_WIDTH* NES_HEIGHT, 0),
                     ntscOutput(NTSC_OUT_WIDTH* NTSC_OUT_HEIGHT, 0) 
@@ -870,7 +872,7 @@ void SDLNTSC::draw(int frames){
     ImGui::End();
 
     ImGui::SetNextWindowPos(ImVec2(gameRect.x + gameRect.w, 30), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(315, 500), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(315, 350), ImGuiCond_FirstUseEver);
     ImGui::Begin("Memory", NULL, regFlagsScroll);
 
     if (ImGui::BeginTabBar("MemoryTabs")) {
@@ -913,12 +915,272 @@ void SDLNTSC::draw(int frames){
         ImGui::EndTabBar();
     }
 
+    ImGui::End();
+
+    ImGui::SetNextWindowPos(ImVec2(gameRect.x + gameRect.w, 380), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(315, 340), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Roms", NULL, regFlagsScroll);
+
+    if (ImGui::Button("Mario", ImVec2(70.0f, 30.0f))) {
+        if (nes->currentRom->romName != "/mario."){
+            nes->loadRom("ROM/mario.nes");
+            isCustomMode = false;
+        }
+   
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("DragonQuest", ImVec2(120.0f, 30.0f))) {
+        if (nes->currentRom->romName != "/Dragon Quest III.") {
+            nes->loadRom("ROM/Dragon Quest III.nes");
+            isCustomMode = false;
+        }
+
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("Custom", ImVec2(70.0f, 30.0f))) {
+        if (nes->currentRom->romName != "/custom.") {
+       //     nes->loadCustom("ROM/Custom.nes");
+            isCustomMode = true;
+        }
+    }
+
+   
+
+    if (isCustomMode) {
+        
+        int k = 0;
+        int index = 0;
+        for (MacroOp& operation : customOps ) {
+          
+            ImGui::SetNextItemWidth(130.0f);
+           
+            for (int iArgs = 0; iArgs < operation.argAmount; iArgs++) {
+                ImGui::PushID(k);
+
+                if (iArgs == 0) {
+                    if (ImGui::BeginCombo("", operation.opName)) {
+                        for (int i = 0; i < 151; i++) {
+                            //    bool isSelected = (selectedRom == i);
+                            if (ImGui::Selectable(macroOps[i].opName, false, 0, ImVec2(100.0f, 20.0f))) {
+
+                                customOps[k] = macroOps[i];
+                                
+                            }
+                            // Notice we call .c_str() because ImGui expects C-style strings
+                       //     if (ImGui::Selectable(romList[i].c_str(), isSelected)) {
+                       //         selectedRom = i;
+                      //      }
+                       //     if (isSelected) {
+                      //          ImGui::SetItemDefaultFocus();
+                      //      }
+                        }
+                        ImGui::EndCombo();
+                    }
+                }
+                else {
+                 
+
+                        ImGui::SameLine();
+                        ImGui::SetNextItemWidth(50.0f);
+                        char hexBuffer[5] = "";
+
+                        if (operation.opArgs[iArgs] >= 0) {
+                           
+                            snprintf(hexBuffer, sizeof(hexBuffer), "%02X", operation.opArgs[iArgs]);
+                        }
+
+     
+                        if (ImGui::InputText("", hexBuffer, IM_ARRAYSIZE(hexBuffer), ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase)) {
+
+                          
+                            if (hexBuffer[0] == '\0') {
+                                operation.opArgs[iArgs] = 0;
+                            }
+                            else {
+                               
+                                operation.opArgs[iArgs] = (int)strtol(hexBuffer, nullptr, 16);
+                            }
+                        }
+
+                    
+                       
+                }
+
+                ImGui::PopID();
+                k++;
+            }
+
+            ImGui::PushID(k);
+            ImGui::SameLine();
+            if (ImGui::Button("+", ImVec2(15.0f, 30.0f))) {
+                customOps.insert(customOps.begin() + index + 1, {"",  {-1, -1, -1}, 1});
+            }
+            ImGui::PopID();
+
+            k++;
+            ImGui::PushID(k);
+            ImGui::SameLine();
+            if (ImGui::Button("-", ImVec2(15.0f, 30.0f))) {
+                customOps.erase(customOps.begin() + index);
+            }
+            ImGui::PopID();
+
+            k++;
+
+            index++;
+        }
+
+        if (index == 0) {
+            ImGui::SetNextItemWidth(130.0f);
+            if (ImGui::BeginCombo("+", "")) {
+                for (int i = 0; i < 151; i++) {
+                    //    bool isSelected = (selectedRom == i);
+                    if (ImGui::Selectable(macroOps[i].opName, false, 0, ImVec2(100.0f, 20.0f))) {
+
+                        customOps.push_back(macroOps[i]);
+                        break;
+                    }
+
+                }
+                ImGui::EndCombo();
+            }
+        }
+        
+
+        if (ImGui::Button("Save")) {
+
+            isSaving = true;
+            isLoading = false;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Load")) {
+            isLoading = true;
+            isSaving = false;
+            files.clear();
+
+            std::string path = "ROM/";
+            try {
+                for (const auto& entry : std::filesystem::directory_iterator(path)) {
+
+                    if (entry.path().extension() == ".nes") {
+                        files.push_back(entry.path().filename().string());
+
+                    }
+
+                }
+            }
+            catch (const std::filesystem::filesystem_error& e) {
+                printf("Failed to load ROMs!\n");
+            }
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Compile & Run")) {
+            std::vector<uint8_t> customCode;
+
+            for (auto& operation : customOps) {
+                if (operation.opName != "") {
+                    for (int i = 0; i < operation.argAmount; i++) {
+                        customCode.push_back(operation.opArgs[i]);
+
+                        char hexBuffer[5] = "";
+                        snprintf(hexBuffer, sizeof(hexBuffer), "%02X", operation.opArgs[i]);
+                        printf("Operation: %s", hexBuffer);
+
+                    }
+
+
+                }
+            }
+            nes->makeRom("ROM/Custom.nes", customCode);
+            nes->loadRom("ROM/Custom.nes");
+        }
+    }
+
 
    // ImGui::ShowMetricsWindow();
     ImGui::End();
 
-  
+    if (isSaving) {
+        ImGui::SetNextWindowPos(ImVec2(gameRect.x, gameRect.h / 2), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(gameRect.w, 100), ImGuiCond_FirstUseEver);
+        ImGui::Begin("Save", NULL, regFlagsScroll);
 
+
+        saveName;
+
+        ImGui::InputText("File Name", &saveName, ImGuiInputTextFlags_None);
+
+        if (ImGui::Button("Save")) {
+            std::vector<uint8_t> customCode;
+
+            for (auto& operation : customOps) {
+                if (operation.opName != "") {
+                    for (int i = 0; i < operation.argAmount; i++) {
+                        customCode.push_back(operation.opArgs[i]);
+
+                        char hexBuffer[5] = "";
+                        snprintf(hexBuffer, sizeof(hexBuffer), "%02X", operation.opArgs[i]);
+                        printf("Operation: %s", hexBuffer);
+
+                    }
+
+
+                }
+            }
+            std::string fullName = "ROM/";
+            fullName.append(saveName);
+            fullName.append(".nes");
+            nes->makeRom(fullName.c_str(), customCode);
+            isSaving = false;
+            saveName = "";
+
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+            isSaving = false;
+        }
+        ImGui::End();
+    }
+    else if (isLoading) {
+        ImGui::SetNextWindowPos(ImVec2(gameRect.x, gameRect.h / 2), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(gameRect.w, 400), ImGuiCond_FirstUseEver);
+        ImGui::Begin("Load", NULL, regFlagsScroll);
+
+
+
+
+       
+
+        int k = 0;
+        for (auto& file : files) {
+            ImGui::PushID(k);
+
+            if (ImGui::Button(file.c_str())) {
+                std::string fullName = "ROM/";
+                fullName.append(file);
+                nes->loadRom(fullName.c_str());
+                isLoading = false;
+
+            }
+            ImGui::PopID();
+            k++;
+        }
+
+       
+
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+           
+            isLoading = false;
+        }
+        ImGui::End();
+
+
+
+
+    }
     SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
     SDL_RenderClear(renderer);
 

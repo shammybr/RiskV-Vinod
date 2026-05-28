@@ -11,8 +11,8 @@ NES::NES() {
 
 }
 
-void NES::loadRom(NESROM* rom){
-	currentRom = rom;
+void NES::loadRom(const char* romName){
+	currentRom = new NESROM(romName);
 
 
 	switch (currentRom->mapperID) {
@@ -49,6 +49,73 @@ void NES::loadRom(NESROM* rom){
 	}
 
 	reset();
+}
+
+
+void  NES::makeRom(const char* filepath, std::vector<uint8_t> customCode) {
+
+	// 1. Write the 16-Byte iNES Header
+	std::vector<uint8_t> rom;
+	rom.push_back('N'); rom.push_back('E'); rom.push_back('S'); rom.push_back(0x1A);
+	rom.push_back(0x01); // 1 PRG bank (16KB)
+	rom.push_back(0x00); // 0 CHR banks (uses RAM instead)
+	rom.push_back(0x00); // Mapper 0, Horizontal Mirroring
+	rom.push_back(0x00); // Mapper 0 continued
+	for (int i = 0; i < 8; i++) rom.push_back(0x00); // 8 bytes of padding
+
+	// 2. Create the 16KB PRG-ROM Memory Space (Fill with NOPs: 0xEA)
+	std::vector<uint8_t> prg(16384, 0xEA);
+
+	// -------------------------------------------------------------
+	// 3. YOUR CUSTOM CODE GOES HERE (Machine Code)
+	// This code will be placed at CPU address $8000
+	// Example: 
+	// SEI          (0x78)
+	// LDA #$FF     (0xA9, 0xFF)
+	// STA $00      (0x85, 0x00)
+	// JMP $8001    (0x4C, 0x01, 0x80) - Infinite loop back to LDA
+	// -------------------------------------------------------------
+
+	//std::vector<uint8_t> customCode = {
+	//	0x78,             // SEI
+	//	0xA9, 0xFF,       // LDA #$FF
+	//	0x85, 0x00,       // STA $00
+	//	0x4C, 0x01, 0x80  // JMP $8001 
+	//};
+
+	// Inject your custom code into the start of the PRG block
+	for (size_t i = 0; i < customCode.size(); i++) {
+		prg[i] = customCode[i];
+	}
+
+	// 4. Set the Hardware Vectors (Last 6 bytes of the PRG space)
+	// The CPU looks here to know where to start executing code.
+
+	// NMI Vector (Normally $FFFA / $FFFB)
+	prg[16384 - 6] = 0x00;
+	prg[16384 - 5] = 0x80; // Point to $8000 (We just loop back to start for now)
+
+	// RESET Vector (Normally $FFFC / $FFFD) - The CPU reads this on boot!
+	prg[16384 - 4] = 0x00; // Low Byte  ($00)
+	prg[16384 - 3] = 0x80; // High Byte ($80) -> Jump to $8000!
+
+	// IRQ Vector (Normally $FFFE / $FFFF)
+	prg[16384 - 2] = 0x00;
+	prg[16384 - 1] = 0x80;
+
+	// 5. Append the PRG to the Header
+	rom.insert(rom.end(), prg.begin(), prg.end());
+
+
+	std::ofstream file(filepath, std::ios::binary);
+	if (file.is_open()) {
+		file.write(reinterpret_cast<const char*>(rom.data()), rom.size());
+		file.close();
+		printf("Successfully generated custom ROM: %s\n", filepath);
+	}
+	else {
+		printf("Failed to create ROM file!\n");
+	}
 }
 
 void NES::unloadRom() {
@@ -1651,6 +1718,9 @@ int NES::RISCStep(NESLogger* logger) {
 
 
 			if (!logMicroOps) {
+				if(frameMode)
+				canStep = false;
+
 
 				InstructionInfo info = logger->opTable[opcode];
 

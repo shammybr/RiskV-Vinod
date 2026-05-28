@@ -6,6 +6,7 @@ F:\RiskV-Vinod\RiskV\lib\imgui\imgui_demo.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Deb
 F:\RiskV-Vinod\RiskV\lib\imgui\imgui_draw.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\imgui_draw.obj
 F:\RiskV-Vinod\RiskV\lib\imgui\imgui_tables.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\imgui_tables.obj
 F:\RiskV-Vinod\RiskV\lib\imgui\imgui_widgets.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\imgui_widgets.obj
+F:\RiskV-Vinod\RiskV\lib\imgui\misc\cpp\imgui_stdlib.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\imgui_stdlib.obj
 F:\RiskV-Vinod\RiskV\lib\nes_ntsc\nes_ntsc.c;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\nes_ntsc.obj
 F:\RiskV-Vinod\RiskV\NES.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\NES.obj
 F:\RiskV-Vinod\RiskV\NESLogger.cpp;F:\RiskV-Vinod\RiskV\RiskV\x64\Debug\NESLogger.obj
