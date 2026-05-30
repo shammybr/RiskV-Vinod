@@ -12,6 +12,16 @@ NES::NES() {
 }
 
 void NES::loadRom(const char* romName){
+	if (currentRom != nullptr) {
+		delete currentRom;
+		currentRom = nullptr;
+	}
+
+	if (mapper != nullptr) {
+		delete mapper;
+		mapper = nullptr;
+	}
+
 	currentRom = new NESROM(romName);
 
 
