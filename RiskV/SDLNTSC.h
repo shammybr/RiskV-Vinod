@@ -326,6 +326,11 @@ public:
 
 	std::vector<uint8_t> nesBuffer;
 	std::vector<uint16_t> ntscOutput;
+    std::vector<uint8_t> savedChrRom = {};
+    uint8_t savedChrBanks = 0;
+    uint8_t savedFlags6 = 0x00;
+    uint8_t savedFlags7 = 0x00;
+
 
 	class NES* nes;
 	class PPU* ppu;
@@ -396,4 +401,5 @@ public:
 	void playAudio(std::vector<float>& audioBuffer);
 
 	void setNes(NES* _nes);
+    std::vector<uint8_t> loadCustomCode(const std::string& filepath);
 };

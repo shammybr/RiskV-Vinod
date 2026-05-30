@@ -948,112 +948,188 @@ void SDLNTSC::draw(int frames){
    
 
     if (isCustomMode) {
-        
-        int k = 0;
-        int index = 0;
-        for (MacroOp& operation : customOps ) {
-          
-            ImGui::SetNextItemWidth(130.0f);
-           
-            for (int iArgs = 0; iArgs < operation.argAmount; iArgs++) {
-                ImGui::PushID(k);
+        char chrBuffer[5] = "";
+        snprintf(chrBuffer, sizeof(chrBuffer), "%02X", savedChrBanks);
 
-                if (iArgs == 0) {
-                    if (ImGui::BeginCombo("", operation.opName)) {
-                        for (int i = 0; i < 151; i++) {
-                            //    bool isSelected = (selectedRom == i);
-                            if (ImGui::Selectable(macroOps[i].opName, false, 0, ImVec2(100.0f, 20.0f))) {
+        ImGui::SetNextItemWidth(50.0f);
+        if (ImGui::InputText("CHR Banks", chrBuffer, IM_ARRAYSIZE(chrBuffer), ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase)) {
 
-                                customOps[k] = macroOps[i];
-                                
+         
+            if (chrBuffer[0] == '\0') {
+                savedChrBanks = 0;
+            }
+            else {
+                savedChrBanks = (uint8_t)strtol(chrBuffer, nullptr, 16);
+            }
+        }
+
+
+        char flag6Buffer[5] = "";
+        snprintf(flag6Buffer, sizeof(flag6Buffer), "%02X", savedFlags6);
+
+        ImGui::SetNextItemWidth(50.0f);
+        if (ImGui::InputText("Flag 6", flag6Buffer, IM_ARRAYSIZE(flag6Buffer), ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase)) {
+
+
+            if (flag6Buffer[0] == '\0') {
+                savedChrBanks = 0;
+            }
+            else {
+                savedChrBanks = (uint8_t)strtol(flag6Buffer, nullptr, 16);
+            }
+        }
+
+        ImGui::SameLine();
+
+
+
+        char flag7Buffer[5] = "";
+        snprintf(flag7Buffer, sizeof(flag7Buffer), "%02X", savedFlags7);
+
+        ImGui::SetNextItemWidth(50.0f);
+        if (ImGui::InputText("Flag 7", flag7Buffer, IM_ARRAYSIZE(flag7Buffer), ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase)) {
+
+
+            if (flag7Buffer[0] == '\0') {
+                savedChrBanks = 0;
+            }
+            else {
+                savedChrBanks = (uint8_t)strtol(flag7Buffer, nullptr, 16);
+            }
+        }
+
+
+        int itemToDelete = -1;
+        int itemToInsertAfter = -1;
+
+
+        ImGui::BeginChild("InstructionList", ImVec2(0, 300.0f), true);
+
+
+        ImGuiListClipper clipper;
+        clipper.Begin((int)customOps.size());
+
+
+        while (clipper.Step()) {
+            for (int index = clipper.DisplayStart; index < clipper.DisplayEnd; index++) {
+
+                MacroOp& operation = customOps[index];
+                ImGui::SetNextItemWidth(130.0f);
+
+                for (int iArgs = 0; iArgs < operation.argAmount; iArgs++) {
+             
+                    ImGui::PushID((index * 10) + iArgs);
+
+                    if (iArgs == 0) {
+                        if (operation.opName != "DATA") {
+                        
+                            if (ImGui::BeginCombo("", operation.opName)) {
+                                for (int i = 0; i < 151; i++) {
+                                    if (ImGui::Selectable(macroOps[i].opName, false, 0, ImVec2(100.0f, 20.0f))) {
+                                        customOps[index] = macroOps[i];
+                                    }
+                                }
+                                ImGui::EndCombo();
                             }
-                            // Notice we call .c_str() because ImGui expects C-style strings
-                       //     if (ImGui::Selectable(romList[i].c_str(), isSelected)) {
-                       //         selectedRom = i;
-                      //      }
-                       //     if (isSelected) {
-                      //          ImGui::SetItemDefaultFocus();
-                      //      }
                         }
-                        ImGui::EndCombo();
-                    }
-                }
-                else {
-                 
+                        else {
 
+                            ImGui::Button("RAW DATA", ImVec2(130.0f, 0.0f));
+
+                            ImGui::SameLine();
+                            ImGui::SetNextItemWidth(50.0f);
+
+                            char hexBuffer[5] = "";
+                            if (operation.opArgs[0] >= 0) {
+                                snprintf(hexBuffer, sizeof(hexBuffer), "%02X", operation.opArgs[0]);
+                            }
+
+                            ImGui::PushID("DataEdit");
+                            if (ImGui::InputText("", hexBuffer, IM_ARRAYSIZE(hexBuffer), ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase)) {
+                                if (hexBuffer[0] == '\0') {
+                                    operation.opArgs[0] = 0;
+                                }
+                                else {
+                                    operation.opArgs[0] = (int)strtol(hexBuffer, nullptr, 16);
+                                }
+                            }
+                            ImGui::PopID();
+                        }
+                    }
+                    else {
+                   
                         ImGui::SameLine();
                         ImGui::SetNextItemWidth(50.0f);
                         char hexBuffer[5] = "";
 
                         if (operation.opArgs[iArgs] >= 0) {
-                           
                             snprintf(hexBuffer, sizeof(hexBuffer), "%02X", operation.opArgs[iArgs]);
                         }
 
-     
                         if (ImGui::InputText("", hexBuffer, IM_ARRAYSIZE(hexBuffer), ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase)) {
-
-                          
                             if (hexBuffer[0] == '\0') {
                                 operation.opArgs[iArgs] = 0;
                             }
                             else {
-                               
                                 operation.opArgs[iArgs] = (int)strtol(hexBuffer, nullptr, 16);
                             }
                         }
-
-                    
-                       
+                    }
+                    ImGui::PopID();
                 }
 
+           
+                ImGui::PushID((index * 10) + 8);
+                ImGui::SameLine();
+                if (ImGui::Button("+", ImVec2(15.0f, 30.0f))) {
+                    itemToInsertAfter = index;
+                }
                 ImGui::PopID();
-                k++;
+
+             
+                ImGui::PushID((index * 10) + 9);
+                ImGui::SameLine();
+                if (ImGui::Button("-", ImVec2(15.0f, 30.0f))) {
+                    itemToDelete = index;
+                }
+                ImGui::PopID();
             }
-
-            ImGui::PushID(k);
-            ImGui::SameLine();
-            if (ImGui::Button("+", ImVec2(15.0f, 30.0f))) {
-                customOps.insert(customOps.begin() + index + 1, {"",  {-1, -1, -1}, 1});
-            }
-            ImGui::PopID();
-
-            k++;
-            ImGui::PushID(k);
-            ImGui::SameLine();
-            if (ImGui::Button("-", ImVec2(15.0f, 30.0f))) {
-                customOps.erase(customOps.begin() + index);
-            }
-            ImGui::PopID();
-
-            k++;
-
-            index++;
         }
 
-        if (index == 0) {
+    
+        clipper.End();
+        ImGui::EndChild();
+
+      
+        if (itemToDelete != -1) {
+            customOps.erase(customOps.begin() + itemToDelete);
+        }
+        if (itemToInsertAfter != -1) {
+            customOps.insert(customOps.begin() + itemToInsertAfter + 1, { "",  {-1, -1, -1}, 1 });
+        }
+
+        if (customOps.size() == 0) {
             ImGui::SetNextItemWidth(130.0f);
             if (ImGui::BeginCombo("+", "")) {
                 for (int i = 0; i < 151; i++) {
-                    //    bool isSelected = (selectedRom == i);
                     if (ImGui::Selectable(macroOps[i].opName, false, 0, ImVec2(100.0f, 20.0f))) {
-
                         customOps.push_back(macroOps[i]);
                         break;
                     }
-
                 }
                 ImGui::EndCombo();
             }
         }
-        
+
+
 
         if (ImGui::Button("Save")) {
-
             isSaving = true;
             isLoading = false;
         }
+
         ImGui::SameLine();
+
         if (ImGui::Button("Load")) {
             isLoading = true;
             isSaving = false;
@@ -1062,12 +1138,9 @@ void SDLNTSC::draw(int frames){
             std::string path = "ROM/";
             try {
                 for (const auto& entry : std::filesystem::directory_iterator(path)) {
-
                     if (entry.path().extension() == ".nes") {
                         files.push_back(entry.path().filename().string());
-
                     }
-
                 }
             }
             catch (const std::filesystem::filesystem_error& e) {
@@ -1076,6 +1149,7 @@ void SDLNTSC::draw(int frames){
         }
 
         ImGui::SameLine();
+
         if (ImGui::Button("Compile & Run")) {
             std::vector<uint8_t> customCode;
 
@@ -1086,18 +1160,14 @@ void SDLNTSC::draw(int frames){
 
                         char hexBuffer[5] = "";
                         snprintf(hexBuffer, sizeof(hexBuffer), "%02X", operation.opArgs[i]);
-                        printf("Operation: %s", hexBuffer);
-
+                        printf("Operation: %s\n", hexBuffer);
                     }
-
-
                 }
             }
-            nes->makeRom("ROM/Custom.nes", customCode);
+            nes->makeRom("ROM/Custom.nes", customCode, savedChrBanks, savedChrRom, savedFlags6, savedFlags7);
             nes->loadRom("ROM/Custom.nes");
         }
     }
-
 
    // ImGui::ShowMetricsWindow();
     ImGui::End();
@@ -1132,7 +1202,7 @@ void SDLNTSC::draw(int frames){
             std::string fullName = "ROM/";
             fullName.append(saveName);
             fullName.append(".nes");
-            nes->makeRom(fullName.c_str(), customCode);
+            nes->makeRom(fullName.c_str(), customCode, savedChrBanks, savedChrRom, savedFlags6, savedFlags7);
             isSaving = false;
             saveName = "";
 
@@ -1160,7 +1230,50 @@ void SDLNTSC::draw(int frames){
             if (ImGui::Button(file.c_str())) {
                 std::string fullName = "ROM/";
                 fullName.append(file);
-                nes->loadRom(fullName.c_str());
+                std::vector<uint8_t> customCode = loadCustomCode(fullName);
+                customOps.clear();
+
+                for (int i = 0; i < customCode.size();) {
+                 //   if (customCode[i] != 0x0) {
+                        auto ptr = std::find_if(std::begin(macroOps), std::end(macroOps),
+                        [&](const MacroOp& op) { return op.opArgs[0] == customCode[i]; });
+                   
+                        if (ptr != std::end(macroOps)) {
+                            customOps.push_back(*ptr);
+                            i++;
+
+                            int argsToRead = ptr->argAmount - 1;
+                            for (int amount = 1; amount <= argsToRead; amount++) {
+
+                              
+                                if (i < customCode.size()) {
+
+                                    customOps.back().opArgs[amount] = customCode[i];
+                                    i++;
+                                }
+                            }
+
+
+                        }
+                        else {
+                            printf("Operation not found: %02X\n", customCode[i]);
+                            MacroOp unknownData = { "DATA", {customCode[i], -1, -1}, 1 };
+                            customOps.push_back(unknownData);
+                            i++;
+                        }
+
+
+                       
+
+
+                 //   }
+                //    else {
+                //        break;
+                 //   }
+
+                }
+               
+           //     nes->loadRom(fullName.c_str());
                 isLoading = false;
 
             }
@@ -1521,4 +1634,36 @@ void SDLNTSC::setNes(NES* _nes){
     nes = _nes;
     ppu = _nes->ppu;
 
+}
+
+std::vector<uint8_t> SDLNTSC::loadCustomCode(const std::string& filepath) {
+    std::ifstream file(filepath, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) return {};
+
+    file.seekg(0, std::ios::beg);
+
+    //header
+    std::vector<uint8_t> header(16);
+    file.read((char*)header.data(), 16);
+
+    // Byte 4 is PRG banks (Code), Byte 5 is CHR banks (Graphics)
+    int prgBanks = header[4];
+    savedChrBanks = header[5];
+    savedFlags6 = header[6];
+    savedFlags7 = header[7];
+
+    int prgBytes = prgBanks * 16384;
+    int chrBytes = savedChrBanks * 8192;
+
+
+    std::vector<uint8_t> prgData(prgBytes);
+    file.read((char*)prgData.data(), prgBytes);
+
+    // Graphics
+    savedChrRom.resize(chrBytes);
+    if (chrBytes > 0) {
+        file.read((char*)savedChrRom.data(), chrBytes);
+    }
+
+    return prgData;
 }

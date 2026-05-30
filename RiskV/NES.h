@@ -204,7 +204,7 @@ public:
 	NES();
 
 	void loadRom(const char* romName);
-	void makeRom(const char* filepath, std::vector<uint8_t> customCode);
+	void makeRom(const char* filepath, std::vector<uint8_t> customCode, uint8_t savedChrBanks, std::vector<uint8_t> savedChrRom, uint8_t savedFlags6, uint8_t savedFlags7);
 
 
 	void unloadRom();
