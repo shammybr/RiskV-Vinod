@@ -1199,8 +1199,7 @@ void SDLNTSC::draw(int frames){
             }
 
 
-            savedChrRom.clear();
-
+      
             nes->makeRom("ROM/Custom.nes", customCode, savedChrBanks, savedChrRom, savedFlags6, savedFlags7);
             nes->loadRom("ROM/Custom.nes");
         }
@@ -1286,6 +1285,25 @@ void SDLNTSC::draw(int frames){
                    
                         if (ptr != std::end(macroOps)) {
                             customOps.push_back(*ptr);
+
+                            if (customCode[i] == 0x85 && i + 1 < customCode.size()) {
+                                if (customCode[i + 1] == 0x57) {
+                                    printf("STA $57 (Mario X Speed) matched! UI Line: %zu\n", customOps.size());
+                                }
+                                else if (customCode[i + 1] == 0x9F) {
+                                    printf("STA $9F (Mario Y Speed) matched! UI Line: %zu\n", customOps.size());
+                                }
+                            }
+                            if (customCode[i] == 0x8D && i + 2 < customCode.size()) {
+                                if (customCode[i + 1] == 0x50 && customCode[i + 2] == 0x04) {
+                                    printf("STA_ABS $0450 (Master Speed Cap) matched! UI Line: %zu\n", customOps.size());
+                                }
+                            }
+                            if (customCode[i] == 0x8D && i + 2 < customCode.size()) {
+                                if (customCode[i + 1] == 0x56 && customCode[i + 2] == 0x04) {
+                                    printf("STA_ABS $0456 (Right Speed Cap) matched! UI Line: %zu\n", customOps.size());
+                                }
+                            }
                             i++;
 
                             int argsToRead = ptr->argAmount - 1;
@@ -1302,7 +1320,7 @@ void SDLNTSC::draw(int frames){
 
                         }
                         else {
-                            printf("Operation not found: %02X\n", customCode[i]);
+                      //      printf("Operation not found: %02X\n", customCode[i]);
                             MacroOp unknownData = { "DATA", {customCode[i], -1, -1}, 1 };
                             customOps.push_back(unknownData);
                             i++;
