@@ -1716,7 +1716,7 @@ int NES::RISCStep(NESLogger* logger) {
 
 
 			if (!logMicroOps) {
-				if(frameMode)
+				if(frameMode && !stepWholeFrame)
 				canStep = false;
 
 

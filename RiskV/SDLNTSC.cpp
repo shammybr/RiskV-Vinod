@@ -950,6 +950,7 @@ void SDLNTSC::draw(int frames){
 
     }
 
+
     ImGui::SameLine();
     if (ImGui::Button("Custom", ImVec2(70.0f, 30.0f))) {
         if (nes->currentRom->romName != "/custom.") {

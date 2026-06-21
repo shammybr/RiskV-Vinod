@@ -610,18 +610,18 @@ uint8_t PPU::step(NESLogger* logger) {
 					
 					break;
 				case 7:
-					incrementScrollX(); // <--- ADD THIS: Move the camera right!
+					incrementScrollX(); 
 					break;
 				}
 			}
 		}
 
-		// At the end of the visible pixels on a scanline, drop down a row
+		// ultimo pixel scanline
 		if (cycle == 256) {
 			incrementScrollY();
 		}
 
-		// At the start of the horizontal blank, snap the X camera back to the left
+		//horizontal blank
 		if (cycle == 257) {
 			loadBackgroundShifters();
 			transferAddressX();

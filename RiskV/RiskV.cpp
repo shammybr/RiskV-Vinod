@@ -47,7 +47,7 @@ int main(){
   //  NESROM* rom = new NESROM("ROM/mario.nes");
     nes->ppu->videoBuffer = sdl->nesBuffer.data();
 
-    nes->loadRom("ROM/mario.nes");
+    nes->loadRom("ROM/AccuracyCoin.nes");
     sdl->setNes(nes);
   //  nes->reset();
 
