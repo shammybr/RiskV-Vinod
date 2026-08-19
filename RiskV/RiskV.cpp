@@ -19,6 +19,7 @@
 
 void CompareFiles(const std::string& file1Path, const std::string& file2Path, const std::string& outputPath);
 
+
 int main(){
 
 
@@ -42,6 +43,8 @@ int main(){
     ImGui_ImplSDL3_InitForSDLRenderer(sdl->window, sdl->renderer);
     ImGui_ImplSDLRenderer3_Init(sdl->renderer);
 
+    
+
     //RiskVProcessor* processor = new RiskVProcessor(0x10000);
     NES* nes = new NES();
   //  NESROM* rom = new NESROM("ROM/mario.nes");
@@ -50,7 +53,7 @@ int main(){
     nes->loadRom("ROM/AccuracyCoin.nes");
     sdl->setNes(nes);
   //  nes->reset();
-
+   
    
 
  //   std::cout << "vPRGMemory size: " << rom->vPRGMemory.size() << "!" << std::endl;
@@ -161,7 +164,8 @@ int main(){
             else {
 
 
-
+   
+   
                 bool isGet = (nes->currentCycles % 2 == 0);
                 nes->apu->step(isGet);
 
@@ -298,6 +302,7 @@ int main(){
                 if (nes->frameMode && !nes->stepWholeFrame && !nes->ppu->pixelMode && nes->logMicroOps) {
                     
                     nes->canStep = false;
+                 
                 }
 
                 for (int i = 0; i < 3; i++) {
@@ -309,6 +314,7 @@ int main(){
 
                         if (nes->frameMode && nes->stepWholeFrame && !nes->ppu->pixelMode) {
                             nes->canStep = false;
+                        
                         }
 
                     }

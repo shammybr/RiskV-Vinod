@@ -474,9 +474,16 @@ void PPU::drawPixel(){
 		videoBuffer[currentY * 256 + currentX] = ntsc_pixel;
 
 		if (pixelMode && nes->frameMode) {
-			if (currentX + 1 < 256) videoBuffer[currentY * 256 + (currentX + 1)] = 0x30;
-			if (currentX + 2 < 256) videoBuffer[currentY * 256 + (currentX + 2)] = 0x30;
-			if (currentX + 3 < 256) videoBuffer[currentY * 256 + (currentX + 3)] = 0x30;
+			if (!lineMode) {
+				if (currentX + 1 < 256) videoBuffer[currentY * 256 + (currentX + 1)] = 0x30;
+				if (currentX + 2 < 256) videoBuffer[currentY * 256 + (currentX + 2)] = 0x30;
+				if (currentX + 3 < 256) videoBuffer[currentY * 256 + (currentX + 3)] = 0x30;
+			}
+			else {
+				for (int i = currentX + 1; i < 256; i++) {
+					videoBuffer[currentY * 256 + i] = 0x30;
+				}
+			}
 		}
 	}
 
@@ -616,12 +623,13 @@ uint8_t PPU::step(NESLogger* logger) {
 			}
 		}
 
-		// ultimo pixel scanline
+		// At the end of the visible pixels on a scanline, drop down a row
 		if (cycle == 256) {
 			incrementScrollY();
+		
 		}
 
-		//horizontal blank
+		// At the start of the horizontal blank, snap the X camera back to the left
 		if (cycle == 257) {
 			loadBackgroundShifters();
 			transferAddressX();
@@ -637,7 +645,19 @@ uint8_t PPU::step(NESLogger* logger) {
 			if (cycle >= 1 && cycle <= 256) {
 				drawPixel();
 				if (nes->frameMode && pixelMode) {
-					nes->canStep = false;
+					if (!lineMode) {
+						if (cycle % pixelsToWait == 0)
+							nes->canStep = false;
+
+					
+
+					}
+					else {
+						if (cycle == 1) {
+							nes->canStep = false;
+							lineMode = false;
+						}
+					}
 				}
 			}
 		}

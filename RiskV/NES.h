@@ -144,6 +144,42 @@ public:
 	bool ppuMapRead(uint16_t address, uint32_t& mappedAddress) override;
 };
 
+class Mapper004 : public Mapper {
+private:
+    uint8_t prgBanks = 0; 
+    uint8_t chrBanks = 0;
+
+    // MMC3 Core Registers
+    uint8_t targetRegister = 0x00;
+    bool prgBankMode = false;
+    bool chrInversion = false;
+    uint32_t registers[8];
+
+  
+    uint32_t prgBankOffset[4]; 
+    uint32_t chrBankOffset[8]; 
+
+   
+    bool irqEnable = false;
+    bool irqUpdate = false;
+    uint8_t irqCounter = 0x00;
+    uint8_t irqReload = 0x00;
+
+    void updateOffsets();
+
+public:
+    Mapper004(uint8_t prgChunks, uint8_t chrChunks);
+
+    bool irqState = false; // The CPU will check this flag to trigger an interrupt
+
+    bool cpuMapRead(uint16_t address, uint32_t& mappedAddress) override;
+    bool cpuMapWrite(uint16_t address, uint32_t& mappedAddress, uint8_t data) override;
+    bool ppuMapRead(uint16_t address, uint32_t& mappedAddress) override;
+    bool ppuMapWrite(uint16_t address, uint32_t& mappedAddress) override;
+
+    // Called by your PPU once per scanline
+    void scanlineIRQ(); 
+};
 
 class NES {
 public:
@@ -449,6 +485,7 @@ public:
 	bool logMicroOps = false;
 	bool canStep = true;
 	bool stepWholeFrame = false;
+	bool logCycles = false;
 
 	int queueSize = 0;
 	int queueIndex = 0;

@@ -379,7 +379,8 @@ public:
 	bool isCustomMode = false;
     bool isSaving = false;
     bool isLoading = false;
-
+    std::string fullName = "ROM/";
+    std::vector<uint8_t> cachedPrgRom;
     std::string saveName;
     std::vector<std::string> files;
 

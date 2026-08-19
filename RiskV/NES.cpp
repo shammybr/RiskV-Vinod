@@ -36,6 +36,10 @@ void NES::loadRom(const char* romName){
 
 		break;
 
+	case 4:
+		mapper = new Mapper004(currentRom->header.prgChunks, currentRom->header.chrChunks);
+
+		break;
 	default:
 		std::cout << "ERRO no Mapper ID: " << (int)currentRom->mapperID << std::endl;
 		break;
@@ -142,6 +146,7 @@ void NES::reset() {
 	opQueue[0] = OP_FETCH_OPCODE;
 	queueSize = 1;
 	queueIndex = 0;
+	currentCycles = 0;
 	
 }
 
@@ -1518,7 +1523,7 @@ int NES::CISCStep(NESLogger* logger) {
 
 
 
-	default: std::cout << "OPCODE ERROR MEME NUMBER: " << opcode << std::endl;	break;
+		std::cout << "OPCODE ERROR: 0x" << std::hex << (int)opcode << std::endl;
 
 	}
 
@@ -1714,9 +1719,9 @@ int NES::RISCStep(NESLogger* logger) {
 
 			iDecode(opcode);
 
-
+			
 			if (!logMicroOps) {
-				if(frameMode && !stepWholeFrame)
+				if(frameMode && !stepWholeFrame && !ppu->pixelMode)
 				canStep = false;
 
 
@@ -2188,7 +2193,7 @@ int NES::RISCStep(NESLogger* logger) {
 			break;
 		}
 
-		default: std::cout << "currentOp ERROR MEME NUMBER: " << currentOp << std::endl;	break;
+		default: std::cout << "OPCODE ERROR: 0x" << std::hex << (int)currentOp << std::endl;	break;
 
 	}
 
@@ -3958,7 +3963,7 @@ void NES::iDecode(uint8_t opcode) {
 
 		default: 
 
-			std::cout << "OPCODE ERROR MEME NUMBER: " << opcode << std::endl;
+			std::cout << "OPCODE ERROR: 0x" << std::hex << (int)opcode << std::endl;
 			opQueue[0] = OP_DUMMY_READ;
 			queueSize = 1;
 			break;
@@ -4269,4 +4274,156 @@ bool Mapper000::ppuMapWrite(uint16_t address, uint32_t& mappedAddress) {
 bool Mapper000::ppuMapRead(uint16_t address, uint32_t& mappedAddress)
 {
 	return false;
+}
+
+Mapper004::Mapper004(uint8_t prgChunks, uint8_t chrChunks) {
+    prgBanks = prgChunks;
+    chrBanks = chrChunks;
+
+    for (int i = 0; i < 8; i++) registers[i] = 0;
+
+ 
+    updateOffsets();
+}
+
+void Mapper004::updateOffsets() {
+
+    uint32_t totalPrg8K = prgBanks * 2;
+
+    if (prgBankMode) {
+     
+        prgBankOffset[0] = (totalPrg8K - 2) * 0x2000;
+        prgBankOffset[1] = registers[7] * 0x2000;
+        prgBankOffset[2] = registers[6] * 0x2000;
+        prgBankOffset[3] = (totalPrg8K - 1) * 0x2000;
+    } else {
+     
+        prgBankOffset[0] = registers[6] * 0x2000;
+        prgBankOffset[1] = registers[7] * 0x2000;
+        prgBankOffset[2] = (totalPrg8K - 2) * 0x2000;
+        prgBankOffset[3] = (totalPrg8K - 1) * 0x2000;
+    }
+
+ 
+    if (chrInversion) {
+     
+        chrBankOffset[0] = registers[2] * 0x0400;
+        chrBankOffset[1] = registers[3] * 0x0400;
+        chrBankOffset[2] = registers[4] * 0x0400;
+        chrBankOffset[3] = registers[5] * 0x0400;
+        chrBankOffset[4] = (registers[0] & 0xFE) * 0x0400;
+        chrBankOffset[5] = (registers[0] | 0x01) * 0x0400;
+        chrBankOffset[6] = (registers[1] & 0xFE) * 0x0400;
+        chrBankOffset[7] = (registers[1] | 0x01) * 0x0400;
+    } else {
+     
+        chrBankOffset[0] = (registers[0] & 0xFE) * 0x0400;
+        chrBankOffset[1] = (registers[0] | 0x01) * 0x0400;
+        chrBankOffset[2] = (registers[1] & 0xFE) * 0x0400;
+        chrBankOffset[3] = (registers[1] | 0x01) * 0x0400;
+        chrBankOffset[4] = registers[2] * 0x0400;
+        chrBankOffset[5] = registers[3] * 0x0400;
+        chrBankOffset[6] = registers[4] * 0x0400;
+        chrBankOffset[7] = registers[5] * 0x0400;
+    }
+}
+
+bool Mapper004::cpuMapRead(uint16_t address, uint32_t& mappedAddress) {
+    if (address >= 0x8000 && address <= 0xFFFF) {
+        uint16_t relAddress = address - 0x8000;
+        uint8_t bankIndex = relAddress / 0x2000;     // Divide by 8KB to find which window
+        uint16_t offset = relAddress % 0x2000;       // Remainder is the exact byte
+        
+        mappedAddress = prgBankOffset[bankIndex] + offset;
+        return true;
+    }
+    // Note: MMC3 also maps PRG RAM from $6000-$7FFF. 
+    // You can handle that here if your emulator uses cart RAM.
+    return false;
+}
+
+bool Mapper004::ppuMapRead(uint16_t address, uint32_t& mappedAddress) {
+    if (address >= 0x0000 && address <= 0x1FFF) {
+        uint8_t bankIndex = address / 0x0400;       // Divide by 1KB
+        uint16_t offset = address % 0x0400;
+        
+        mappedAddress = chrBankOffset[bankIndex] + offset;
+        return true;
+    }
+    return false;
+}
+
+bool Mapper004::ppuMapWrite(uint16_t address, uint32_t& mappedAddress) {
+    // Only map writes if this game uses CHR RAM instead of CHR ROM (chrBanks == 0)
+    if (address >= 0x0000 && address <= 0x1FFF && chrBanks == 0) {
+        uint8_t bankIndex = address / 0x0400;
+        uint16_t offset = address % 0x0400;
+        
+        mappedAddress = chrBankOffset[bankIndex] + offset;
+        return true;
+    }
+    return false;
+}
+
+bool Mapper004::cpuMapWrite(uint16_t address, uint32_t& mappedAddress, uint8_t data) {
+    if (address >= 0x8000 && address <= 0xFFFF) {
+        bool isEven = (address % 2 == 0);
+
+        if (address >= 0x8000 && address <= 0x9FFF) {
+            if (isEven) {
+                // $8000: Bank Select
+                targetRegister = data & 0x07;
+                prgBankMode = (data & 0x40);
+                chrInversion = (data & 0x80);
+            } else {
+                // $8001: Bank Data
+                registers[targetRegister] = data;
+            }
+            updateOffsets();
+        } 
+        else if (address >= 0xA000 && address <= 0xBFFF) {
+            if (isEven) {
+                // $A000: Mirroring
+                // 0 = Vertical, 1 = Horizontal (opposite of standard iNES rules)
+                if (data & 0x01) mirroringMode = MHORIZONTAL;
+                else             mirroringMode = MVERTICAL;
+            } else {
+                // $A001: PRG RAM Protect (Safe to ignore for most emulators)
+            }
+        } 
+        else if (address >= 0xC000 && address <= 0xDFFF) {
+            if (isEven) {
+                // $C000: IRQ Latch
+                irqReload = data;
+            } else {
+                // $C001: IRQ Reload
+                irqUpdate = true;
+            }
+        } 
+        else if (address >= 0xE000 && address <= 0xFFFF) {
+            if (isEven) {
+                // $E000: IRQ Disable
+                irqEnable = false;
+                irqState = false;
+            } else {
+                // $E001: IRQ Enable
+                irqEnable = true;
+            }
+        }
+        return true; // We intercepted the write, don't write to ROM
+    }
+    return false;
+}
+
+void Mapper004::scanlineIRQ() {
+    if (irqCounter == 0 || irqUpdate) {
+        irqCounter = irqReload;
+        irqUpdate = false;
+    } else {
+        irqCounter--;
+    }
+
+    if (irqCounter == 0 && irqEnable) {
+        irqState = true; 
+    }
 }

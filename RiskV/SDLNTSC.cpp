@@ -22,6 +22,7 @@ SDLNTSC::SDLNTSC(int windowW, int windowH) : nesBuffer(NES_WIDTH* NES_HEIGHT, 0)
        
 
         window = SDL_CreateWindow("CAVALO NES", windowW, windowH, SDL_WINDOW_RESIZABLE);
+
         renderer = SDL_CreateRenderer(window, NULL);
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
         mem_edit.OptShowDataPreview = true;
@@ -835,6 +836,7 @@ void SDLNTSC::draw(int frames){
     for (int i = 0; i < 9; i++) {
         
         ImGui::Text(nes->history[(nes->historyN + i) % 9]);
+        
     }
 
 
@@ -868,7 +870,9 @@ void SDLNTSC::draw(int frames){
     ImGui::Text("Frame Mode - F2");
     ImGui::Text("Next Step - F3");
     ImGui::Text("Next Frame - F4");
-
+    if (nes->logCycles) {
+        ImGui::Text("Cycles: %u", nes->currentCycles);
+    }
     ImGui::End();
 
     ImGui::SetNextWindowPos(ImVec2(gameRect.x + gameRect.w, 30), ImGuiCond_FirstUseEver);
@@ -949,7 +953,6 @@ void SDLNTSC::draw(int frames){
         }
 
     }
-
 
     ImGui::SameLine();
     if (ImGui::Button("Custom", ImVec2(70.0f, 30.0f))) {
@@ -1204,6 +1207,13 @@ void SDLNTSC::draw(int frames){
             nes->makeRom("ROM/Custom.nes", customCode, savedChrBanks, savedChrRom, savedFlags6, savedFlags7);
             nes->loadRom("ROM/Custom.nes");
         }
+
+        if (ImGui::Button("Run")) {
+
+             nes->loadRom(fullName.c_str());
+        }
+
+          ImGui::SameLine();
     }
 
    // ImGui::ShowMetricsWindow();
@@ -1265,7 +1275,7 @@ void SDLNTSC::draw(int frames){
             ImGui::PushID(k);
 
             if (ImGui::Button(file.c_str())) {
-                std::string fullName = "ROM/";
+                fullName = "ROM/";
                 fullName.append(file);
                 std::vector<uint8_t> customCode = loadCustomCode(fullName);
                 customOps.clear();
@@ -1287,7 +1297,7 @@ void SDLNTSC::draw(int frames){
                         if (ptr != std::end(macroOps)) {
                             customOps.push_back(*ptr);
 
-                            if (customCode[i] == 0x85 && i + 1 < customCode.size()) {
+                          /*  if (customCode[i] == 0x85 && i + 1 < customCode.size()) {
                                 if (customCode[i + 1] == 0x57) {
                                     printf("STA $57 (Mario X Speed) matched! UI Line: %zu\n", customOps.size());
                                 }
@@ -1304,7 +1314,7 @@ void SDLNTSC::draw(int frames){
                                 if (customCode[i + 1] == 0x56 && customCode[i + 2] == 0x04) {
                                     printf("STA_ABS $0456 (Right Speed Cap) matched! UI Line: %zu\n", customOps.size());
                                 }
-                            }
+                            }*/
                             i++;
 
                             int argsToRead = ptr->argAmount - 1;
@@ -1359,19 +1369,19 @@ void SDLNTSC::draw(int frames){
 
 
     }
+
+
+
+
+
+
+
+
+
+
+
     SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
     SDL_RenderClear(renderer);
-
-
-
-
-
-
-
-
-
-
-
   
     DrawGame();
 
@@ -1393,7 +1403,7 @@ void SDLNTSC::DrawGame() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 
 
-    SDL_RenderClear(renderer);
+ 
     nes_ntsc_blit(ntsc,
         nesBuffer.data(), NES_WIDTH,
         burst_phase,
@@ -1600,7 +1610,16 @@ void SDLNTSC::DrawCPU() {
 
 bool SDLNTSC::poll(uint8_t *controller, std::vector<float>& audioBuffer) {
     while (SDL_PollEvent(&event)) {
-        SDL_ConvertEventToRenderCoordinates(renderer, &event);
+        if (event.type == SDL_EVENT_MOUSE_MOTION || 
+            event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || 
+            event.type == SDL_EVENT_MOUSE_BUTTON_UP || 
+            event.type == SDL_EVENT_MOUSE_WHEEL ||
+            event.type == SDL_EVENT_FINGER_DOWN || 
+            event.type == SDL_EVENT_FINGER_UP || 
+            event.type == SDL_EVENT_FINGER_MOTION) {
+        
+            SDL_ConvertEventToRenderCoordinates(renderer, &event);
+        }
         ImGui_ImplSDL3_ProcessEvent(&event);
 
 
@@ -1622,7 +1641,9 @@ bool SDLNTSC::poll(uint8_t *controller, std::vector<float>& audioBuffer) {
             case SDLK_F5:
                 if (pressed) { if (nes->frameMode) { ppu->pixelMode = true; };  nes->canStep = true; }
                 break;
-
+            case SDLK_F8:
+                if (pressed) { if (nes->frameMode) { ppu->pixelMode = true; ppu->lineMode = true; };  nes->canStep = true; }
+                break;
 
             }
 
@@ -1648,6 +1669,16 @@ bool SDLNTSC::poll(uint8_t *controller, std::vector<float>& audioBuffer) {
                     break;
                 case SDLK_F4:
                     if (pressed) { nes->stepWholeFrame = true;  ppu->pixelMode = false; nes->canStep = true; }
+                    break;
+                case SDLK_F6:
+                    if (pressed) { if (nes->frameMode) { ppu->pixelMode = true; if (ppu->pixelsToWait > 1) { ppu->pixelsToWait--; } };  nes->canStep = true; }
+                    break;
+                case SDLK_F7:
+                    if (pressed) { if (nes->frameMode) { ppu->pixelMode = true; ppu->pixelsToWait++; };  nes->canStep = true; }
+                    break;
+               
+                case SDLK_F9:
+                    if (pressed) { nes->logCycles = !nes->logCycles; }
                     break;
 
                 }

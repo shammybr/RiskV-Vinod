@@ -52,6 +52,8 @@ public:
 
 	bool oddFrame = false;
 	bool pixelMode = false;
+	bool lineMode = false;
+	int pixelsToWait = 1;
 	int16_t scanline = 0; //  0 - 261
 	uint16_t cycle = 0;    //  0 - 340
 
